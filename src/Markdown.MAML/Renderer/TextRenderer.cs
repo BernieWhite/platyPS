@@ -35,7 +35,7 @@ namespace Markdown.MAML.Renderer
             };
             if (document.Children.Any(c => (!acceptableNodeTypes.Contains(c.NodeType))))
             {
-                throw new NotSupportedException("About Topics can only have heading, parapgrah or code block nodes in their Markdown Model.");
+                throw new NotSupportedException("About Topics can only have heading, paragraph or code block nodes in their Markdown Model.");
             }
 
             //processes all nodes in order
