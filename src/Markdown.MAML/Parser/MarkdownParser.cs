@@ -1,9 +1,7 @@
-﻿using Markdown.MAML.Model;
+﻿using Markdown.MAML.Model.Markdown;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text.RegularExpressions;
-using Markdown.MAML.Model.Markdown;
 
 namespace Markdown.MAML.Parser
 {
@@ -22,7 +20,7 @@ namespace Markdown.MAML.Parser
         FormattingPreserve
     }
 
-    public class MarkdownParser
+    internal sealed class MarkdownParser
     {
         #region Private Fields
 
