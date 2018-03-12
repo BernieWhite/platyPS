@@ -1,30 +1,46 @@
 ﻿using Markdown.MAML.Model.MAML;
+using Markdown.MAML.Model.Markdown;
 using Markdown.MAML.Parser;
 using Markdown.MAML.Resources;
-using Markdown.MAML.Transformer;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using Markdown.MAML.Model.Markdown;
 
 namespace Markdown.MAML.Renderer
 {
     /// <summary>
     /// Renders MamlModel as markdown with schema v 2.0.0
     /// </summary>
-    public class MarkdownV2Renderer
+    internal sealed class MarkdownV2Renderer
     {
-        private StringBuilder _stringBuilder = new StringBuilder();
+        private const int COMMAND_NAME_HEADING_LEVEL = 1;
+        private const int COMMAND_ENTRIES_HEADING_LEVEL = 2;
+        private const int PARAMETER_NAME_HEADING_LEVEL = 3;
+        private const int INPUT_OUTPUT_TYPENAME_HEADING_LEVEL = 3;
+        private const int EXAMPLE_HEADING_LEVEL = 3;
+        private const int PARAMETERSET_NAME_HEADING_LEVEL = 3;
+        public static readonly string ALL_PARAM_SETS_MONIKER = "(All)";
 
-        private ParserMode _mode;
+        public static Lazy<Regex> ExampleTitle = new Lazy<Regex>(() => new Regex(@"^(-| ){0,}(?<title>([^\f\n\r\t\v\x85\p{Z}-][^\f\n\r\t\v\x85]+[^\f\n\r\t\v\x85\p{Z}-]))(-| ){0,}$", RegexOptions.Compiled));
+
+        private ParserMode _Mode;
+        private StreamWriter _Writer;
+        private char[] _WriteBuffer = new char[104];
 
         public int MaxSyntaxWidth { get; private set; }
 
         private const string NewLine = "\r\n";
+        private const string LineBreak = "\r\n\r\n";
+        private const string TripleBacktick = "```";
+        private const char Space = ' ';
+        private const char Colon = ':';
+        private const char Blackslash = '\\';
+        private const string ArraySeperator = ", ";
+        private const string TripleDash = "---";
 
         /// <summary>
         /// 110 is a good width value, because it doesn't cause github to add horizontal scroll bar
@@ -35,8 +51,8 @@ namespace Markdown.MAML.Renderer
 
         public MarkdownV2Renderer(ParserMode mode, int maxSyntaxWidth)
         {
-            this.MaxSyntaxWidth = maxSyntaxWidth;
-            this._mode = mode;
+            MaxSyntaxWidth = maxSyntaxWidth;
+            _Mode = mode;
         }
 
         public string MamlModelToString(MamlCommand mamlCommand, bool skipYamlHeader)
@@ -51,51 +67,58 @@ namespace Markdown.MAML.Renderer
 
         private string MamlModelToString(MamlCommand mamlCommand, Hashtable yamlHeader, bool skipYamlHeader)
         {
-            // clear, so we can re-use this instance
-            _stringBuilder.Clear();
-            if (!skipYamlHeader)
+            using (var stream = new MemoryStream())
             {
-                if (yamlHeader == null)
+                using (_Writer = new StreamWriter(stream, Encoding.UTF8, 100, true))
                 {
-                    yamlHeader = new Hashtable();
+                    // Add front matter metadata
+                    if (!skipYamlHeader)
+                    {
+                        mamlCommand.SetMetadata("schema", "2.0.0");
+
+                        AddYamlHeader(mamlCommand);
+                    }
+
+                    // Process the command
+                    AddCommand(mamlCommand);
                 }
 
-                // put version there
-                yamlHeader["schema"] = "2.0.0";
-                AddYamlHeader(yamlHeader);
+                stream.Flush();
+                stream.Seek(0, SeekOrigin.Begin);
+
+                using (var reader = new StreamReader(stream))
+                {
+                    return reader.ReadToEnd();
+                }
             }
-
-            AddCommand(mamlCommand);
-
-            // at the end, just normalize all ends
-            return RenderCleaner.NormalizeLineBreaks(
-                RenderCleaner.NormalizeWhitespaces(
-                    RenderCleaner.NormalizeQuotesAndDashes(
-                        _stringBuilder.ToString())));
         }
-        
-        private void AddYamlHeader(Hashtable yamlHeader)
+
+        /// <summary>
+        /// Process metadata.
+        /// </summary>
+        private void AddYamlHeader(MamlCommand command)
         {
-            _stringBuilder.AppendFormat("---{0}", NewLine);
-            
+            WriteRaw(TripleDash);
+            WriteRaw(NewLine);
+
             // Use a sorted dictionary to force the metadata into alphabetical order by key for consistency.
-            var sortedHeader = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (DictionaryEntry pair in yamlHeader)
-            {
-                sortedHeader[pair.Key.ToString()] = pair.Value == null ? "" : pair.Value.ToString();
-            }
-            
+            var sortedHeader = new SortedDictionary<string, string>(command.Metadata, StringComparer.OrdinalIgnoreCase);
+
             foreach (var pair in sortedHeader)
             {
                 AppendYamlKeyValue(pair.Key, pair.Value);
             }
 
-            _stringBuilder.AppendFormat("---{0}{0}", NewLine);
+            WriteRaw(TripleDash);
+            WriteRaw(LineBreak);
         }
 
+        /// <summary>
+        /// Process a MAML command.
+        /// </summary>
         private void AddCommand(MamlCommand command)
         {
-            AddHeader(ModelTransformerBase.COMMAND_NAME_HEADING_LEVEL, command.Name);
+            AddHeader(COMMAND_NAME_HEADING_LEVEL, command.Name);
             AddEntryHeaderWithText(MarkdownStrings.SYNOPSIS, command.Synopsis);
             AddSyntax(command);
             AddEntryHeaderWithText(MarkdownStrings.DESCRIPTION, command.Description);
@@ -107,28 +130,41 @@ namespace Markdown.MAML.Renderer
             AddLinks(command);
         }
 
+        /// <summary>
+        /// Process links.
+        /// </summary>
         private void AddLinks(MamlCommand command)
         {
             var extraNewLine = command.Links != null && command.Links.Count > 0;
 
-            AddHeader(ModelTransformerBase.COMMAND_ENTRIES_HEADING_LEVEL, MarkdownStrings.RELATED_LINKS, extraNewLine);
+            AddHeader(COMMAND_ENTRIES_HEADING_LEVEL, MarkdownStrings.RELATED_LINKS, extraNewLine);
             foreach (var link in command.Links)
             {
-                if (link.IsSimplifiedTextLink)
-                {
-                    _stringBuilder.AppendFormat("{0}", link.LinkName);
-                }
-                else
-                {
-                    var name = link.LinkName;
-                    if (string.IsNullOrEmpty(name))
-                    {
-                        // we need a valid name to produce a valid markdown
-                        name = link.LinkUri;
-                    }
+                Link(link);
+            }
+        }
 
-                    _stringBuilder.AppendFormat("[{0}]({1}){2}{2}", name, link.LinkUri, NewLine);
+        private void Link(MamlLink link)
+        {
+            if (link.IsSimplifiedTextLink)
+            {
+                WriteRaw(link.LinkName);
+            }
+            else
+            {
+                var name = link.LinkName;
+                if (string.IsNullOrEmpty(name))
+                {
+                    // we need a valid name to produce a valid markdown
+                    name = link.LinkUri;
                 }
+
+                WriteRaw('[');
+                WriteRaw(name);
+                WriteRaw("](");
+                WriteRaw(link.LinkUri);
+                WriteRaw(')');
+                WriteRaw(LineBreak);
             }
         }
 
@@ -140,14 +176,14 @@ namespace Markdown.MAML.Renderer
                 return;
             }
 
-            var extraNewLine = ShouldBreak(io.FormatOption);
-            AddHeader(ModelTransformerBase.INPUT_OUTPUT_TYPENAME_HEADING_LEVEL, io.TypeName, extraNewLine);
+            var extraNewLine = string.IsNullOrEmpty(io.Description) || ShouldBreak(io.FormatOption);
+            AddHeader(INPUT_OUTPUT_TYPENAME_HEADING_LEVEL, io.TypeName, extraNewLine);
             AddParagraphs(io.Description);
         }
 
         private void AddOutputs(MamlCommand command)
         {
-            AddHeader(ModelTransformerBase.COMMAND_ENTRIES_HEADING_LEVEL, MarkdownStrings.OUTPUTS);
+            AddHeader(COMMAND_ENTRIES_HEADING_LEVEL, MarkdownStrings.OUTPUTS);
             foreach (var io in command.Outputs)
             {
                 AddInputOutput(io);
@@ -156,7 +192,7 @@ namespace Markdown.MAML.Renderer
 
         private void AddInputs(MamlCommand command)
         {
-            AddHeader(ModelTransformerBase.COMMAND_ENTRIES_HEADING_LEVEL, MarkdownStrings.INPUTS);
+            AddHeader(COMMAND_ENTRIES_HEADING_LEVEL, MarkdownStrings.INPUTS);
             foreach (var io in command.Inputs)
             {
                 AddInputOutput(io);
@@ -165,7 +201,7 @@ namespace Markdown.MAML.Renderer
 
         private void AddParameters(MamlCommand command)
         {
-            AddHeader(ModelTransformerBase.COMMAND_ENTRIES_HEADING_LEVEL, MarkdownStrings.PARAMETERS);
+            AddHeader(COMMAND_ENTRIES_HEADING_LEVEL, MarkdownStrings.PARAMETERS);
             foreach (var param in command.Parameters)
             {
                 AddParameter(param, command);
@@ -185,19 +221,20 @@ namespace Markdown.MAML.Renderer
 
         private void AddCommonParameters()
         {
-            AddHeader(ModelTransformerBase.PARAMETERSET_NAME_HEADING_LEVEL, MarkdownStrings.CommonParametersToken, extraNewLine: false);
+            AddHeader(PARAMETERSET_NAME_HEADING_LEVEL, MarkdownStrings.CommonParametersToken, extraNewLine: false);
             AddParagraphs(MarkdownStrings.CommonParametersText);
         }
 
         private void AddWorkflowParameters()
         {
-            AddHeader(ModelTransformerBase.PARAMETERSET_NAME_HEADING_LEVEL, MarkdownStrings.WorkflowParametersToken, extraNewLine: false);
+            AddHeader(PARAMETERSET_NAME_HEADING_LEVEL, MarkdownStrings.WorkflowParametersToken, extraNewLine: false);
             AddParagraphs(MarkdownStrings.WorkflowParametersText);
         }
 
-        private Dictionary<string, MamlParameter> GetParamSetDictionary(string parameterName, List<MamlSyntax> syntaxes)
+        private Dictionary<string, MamlParameter> GetParamSetDictionary(string parameterName, IEnumerable<MamlSyntax> syntaxes)
         {
             var result = new Dictionary<string, MamlParameter>();
+
             foreach (var syntax in syntaxes)
             {
                 foreach (var param in syntax.Parameters)
@@ -208,7 +245,7 @@ namespace Markdown.MAML.Renderer
                         {
                             // Note (vors) : I guess that means it's applicable to all parameter sets,
                             // but it's hard to tell anymore...
-                            result[ModelTransformerVersion2.ALL_PARAM_SETS_MONIKER] = param;
+                            result[ALL_PARAM_SETS_MONIKER] = param;
                         }
                         else
                         {
@@ -253,16 +290,6 @@ namespace Markdown.MAML.Renderer
             return res;
         }
 
-        private string JoinWithComma(IEnumerable<string> args)
-        {
-            if (args == null)
-            {
-                return "";
-            }
-
-            return string.Join(", ", args);
-        }
-
         private bool ShouldBreak(SectionFormatOption formatOption)
         {
             return formatOption.HasFlag(SectionFormatOption.LineBreakAfterHeader);
@@ -272,43 +299,43 @@ namespace Markdown.MAML.Renderer
         {
             var extraNewLine = ShouldBreak(parameter.FormatOption);
 
-            AddHeader(ModelTransformerBase.PARAMETERSET_NAME_HEADING_LEVEL, '-' + parameter.Name, extraNewLine: extraNewLine);
+            AddHeader(PARAMETERSET_NAME_HEADING_LEVEL, '-' + parameter.Name, extraNewLine: extraNewLine);
 
             AddParagraphs(parameter.Description);
-            
+
             var sets = SimplifyParamSets(GetParamSetDictionary(parameter.Name, command.Syntax));
+
             foreach (var set in sets)
             {
-                _stringBuilder.AppendFormat("```yaml{0}", NewLine);
+                WriteRaw("```yaml");
+                WriteRaw(NewLine);
 
                 AppendYamlKeyValue(MarkdownStrings.Type, parameter.Type);
 
-                string parameterSetsString;
                 if (command.Syntax.Count == 1 || set.Item1.Count == command.Syntax.Count)
                 {
                     // ignore, if there is just one parameter set
                     // or this parameter belongs to All parameter sets, use (All)
-                    parameterSetsString = ModelTransformerVersion2.ALL_PARAM_SETS_MONIKER;
+                    AppendYamlKeyValue(MarkdownStrings.Parameter_Sets, ALL_PARAM_SETS_MONIKER);
                 }
                 else
                 {
-                    parameterSetsString = JoinWithComma(set.Item1);
+                    AppendYamlKeyValue(MarkdownStrings.Parameter_Sets, set.Item1.ToArray());
                 }
 
-                AppendYamlKeyValue(MarkdownStrings.Parameter_Sets, parameterSetsString);
+                AppendYamlKeyValue(MarkdownStrings.Aliases, parameter.Aliases);
 
-                AppendYamlKeyValue(MarkdownStrings.Aliases, JoinWithComma(parameter.Aliases));
                 if (parameter.ParameterValueGroup.Count > 0)
                 {
-                    AppendYamlKeyValue(MarkdownStrings.Accepted_values, JoinWithComma(parameter.ParameterValueGroup));
+                    AppendYamlKeyValue(MarkdownStrings.Accepted_values, parameter.ParameterValueGroup.ToArray());
                 }
 
                 if (parameter.Applicable != null)
                 {
-                    AppendYamlKeyValue(MarkdownStrings.Applicable, JoinWithComma(parameter.Applicable));
+                    AppendYamlKeyValue(MarkdownStrings.Applicable, parameter.Applicable);
                 }
 
-                _stringBuilder.AppendLine();
+                WriteRaw(NewLine);
 
                 AppendYamlKeyValue(MarkdownStrings.Required, set.Item2.Required.ToString());
                 AppendYamlKeyValue(MarkdownStrings.Position, set.Item2.IsNamed() ? "Named" : set.Item2.Position);
@@ -316,30 +343,52 @@ namespace Markdown.MAML.Renderer
                 AppendYamlKeyValue(MarkdownStrings.Accept_pipeline_input, parameter.PipelineInput);
                 AppendYamlKeyValue(MarkdownStrings.Accept_wildcard_characters, parameter.Globbing.ToString());
 
-                _stringBuilder.AppendFormat("```{0}{0}", NewLine);
+                WriteRaw(TripleBacktick);
+                WriteRaw(LineBreak);
             }
         }
 
-        private void AppendYamlKeyValue(string key, string value)
+        /// <summary>
+        /// Append a YAML entry. i.e. "key: value" or "key: value, value"
+        /// </summary>
+        /// <param name="key">The key.</param>
+        /// <param name="value">One or more values.</param>
+        private void AppendYamlKeyValue(string key, params string[] value)
         {
-            if (string.IsNullOrEmpty(value))
-            {
-                _stringBuilder.AppendFormat("{0}:{1}", key, NewLine);
+            WriteRaw(key);
+            WriteRaw(Colon);
 
-                return;
+            if (value != null)
+            {
+                for (var i = 0; i < value.Length; i++)
+                {
+                    // Seperate entries by ", "
+                    if (i > 0)
+                    {
+                        WriteRaw(ArraySeperator);
+                    }
+                    // Don't add a seperating space if the value is null
+                    else if (!string.IsNullOrEmpty(value[i]))
+                    {
+                        WriteRaw(Space);
+                    }
+
+                    WriteRaw(value[i]);
+                }
             }
 
-            _stringBuilder.AppendFormat("{0}: {1}{2}", key, value, NewLine);
+            WriteRaw(NewLine);
         }
 
         private void AddExamples(MamlCommand command)
         {
-            AddHeader(ModelTransformerBase.COMMAND_ENTRIES_HEADING_LEVEL, MarkdownStrings.EXAMPLES);
+            AddHeader(COMMAND_ENTRIES_HEADING_LEVEL, MarkdownStrings.EXAMPLES);
+
             foreach (var example in command.Examples)
             {
                 var extraNewLine = ShouldBreak(example.FormatOption);
 
-                AddHeader(ModelTransformerBase.EXAMPLE_HEADING_LEVEL, GetExampleTitle(example.Title), extraNewLine: extraNewLine);
+                AddHeader(EXAMPLE_HEADING_LEVEL, GetExampleTitle(example.Title), extraNewLine: extraNewLine);
 
                 if (!string.IsNullOrEmpty(example.Introduction))
                 {
@@ -363,8 +412,8 @@ namespace Markdown.MAML.Renderer
 
         private static string GetExampleTitle(string title)
         {
-            var match = Regex.Match(title, @"^(-| ){0,}(?<title>([^\f\n\r\t\v\x85\p{Z}-][^\f\n\r\t\v\x85]+[^\f\n\r\t\v\x85\p{Z}-]))(-| ){0,}$");
-            
+            var match = ExampleTitle.Value.Match(title);
+
             if (match.Success)
             {
                 return match.Groups["title"].Value;
@@ -387,7 +436,7 @@ namespace Markdown.MAML.Renderer
             sb.Append(command.Name);
 
             var paramStrings = new List<string>();
-                        
+
             // first we create list of param string we want to add
             foreach (var param in syntax.Parameters)
             {
@@ -411,7 +460,7 @@ namespace Markdown.MAML.Renderer
                         paramStr = string.Format("[{0}]", paramStr);
                     }
                 }
-                paramStrings.Add(paramStr);   
+                paramStrings.Add(paramStr);
             }
 
             if (command.IsWorkflow)
@@ -426,7 +475,7 @@ namespace Markdown.MAML.Renderer
 
             // then we format them properly with repsect to max width for window.
             int widthBeforeLastBreak = 0;
-            foreach (string paramStr in paramStrings) { 
+            foreach (string paramStr in paramStrings) {
 
                 if (sb.Length - widthBeforeLastBreak + paramStr.Length > maxSyntaxWidth)
                 {
@@ -442,12 +491,12 @@ namespace Markdown.MAML.Renderer
 
         private void AddSyntax(MamlCommand command)
         {
-            AddHeader(ModelTransformerBase.COMMAND_ENTRIES_HEADING_LEVEL, MarkdownStrings.SYNTAX);
+            AddHeader(COMMAND_ENTRIES_HEADING_LEVEL, MarkdownStrings.SYNTAX);
             foreach (var syntax in command.Syntax)
             {
                 if (command.Syntax.Count > 1)
                 {
-                    AddHeader(ModelTransformerBase.PARAMETERSET_NAME_HEADING_LEVEL, string.Format("{0}{1}",syntax.ParameterSetName,syntax.IsDefault ? MarkdownStrings.DefaultParameterSetModifier : null), extraNewLine: false);
+                    AddHeader(PARAMETERSET_NAME_HEADING_LEVEL, string.Format("{0}{1}", syntax.ParameterSetName, syntax.IsDefault ? MarkdownStrings.DefaultParameterSetModifier : null), extraNewLine: false);
                 }
 
                 AddCodeSnippet(GetSyntaxString(command, syntax));
@@ -459,7 +508,7 @@ namespace Markdown.MAML.Renderer
             var extraNewLine = body == null || string.IsNullOrEmpty(body.Text) || ShouldBreak(body.FormatOption);
 
             // Add header
-            AddHeader(ModelTransformerBase.COMMAND_ENTRIES_HEADING_LEVEL, header, extraNewLine: extraNewLine);
+            AddHeader(COMMAND_ENTRIES_HEADING_LEVEL, header, extraNewLine: extraNewLine);
 
             // to correctly handle empty text case, we are adding new-line here
             if (body != null && !string.IsNullOrEmpty(body.Text))
@@ -470,20 +519,26 @@ namespace Markdown.MAML.Renderer
 
         private void AddCodeSnippet(string code, string lang = "")
         {
-            _stringBuilder.AppendFormat("```{1}{2}{0}{2}```{2}{2}", code, lang, NewLine);
+            WriteRaw(TripleBacktick);
+            WriteRaw(lang);
+            WriteRaw(NewLine);
+            WriteRaw(code);
+            WriteRaw(NewLine);
+            WriteRaw(TripleBacktick);
+            WriteRaw(LineBreak);
         }
 
         private void AddHeader(int level, string header, bool extraNewLine = true)
         {
-            for (int i = 0; i < level; i++)
-            {
-                _stringBuilder.Append('#');
-            }
-            _stringBuilder.Append(' ');
-            _stringBuilder.AppendFormat("{0}{1}", header, NewLine);
+            WriteRaw("".PadLeft(level, '#'));
+            WriteRaw(Space);
+            WriteRaw(header);
+
+            WriteRaw(NewLine);
+
             if (extraNewLine)
             {
-                _stringBuilder.Append(NewLine);
+                WriteRaw(NewLine);
             }
         }
 
@@ -495,26 +550,32 @@ namespace Markdown.MAML.Renderer
         private string GetAutoWrappingForMarkdown(string[] lines)
         {
             // this is an implementation of https://github.com/PowerShell/platyPS/issues/93
-            
+
             // algorithm: identify chunks that represent lists
             // Every entry in a list should be preserved as is and 1 EOL between them
             // Every entry not in a list should be split with GetAutoWrappingForNonListLine
             // delimiters between lists and non-lists are 2 EOLs.
 
-            var newLines = new List<string>();
+            var sb = new StringBuilder();
 
             for (int i = 0; i < lines.Length; i++)
             {
-                if (MarkdownParser.HasListPrefix(lines[i]))
+                if (i > 0)
                 {
-                    if (i > 0 && !MarkdownParser.HasListPrefix(lines[i - 1]))
+                    sb.Append(NewLine);
+                }
+
+                if (HasListPrefix(lines[i]))
+                {
+                    if (i > 0 && !HasListPrefix(lines[i - 1]))
                     {
                         // we are in a list and it just started
-                        newLines.Add(NewLine + lines[i]);
+                        sb.Append(NewLine);
+                        sb.Append(lines[i]);
                     }
                     else
                     {
-                        newLines.Add(lines[i]);
+                        sb.Append(lines[i]);
                     }
                 }
                 else
@@ -522,86 +583,171 @@ namespace Markdown.MAML.Renderer
                     if (i > 0)
                     {
                         // we are just finished a list
-                        newLines.Add(NewLine + GetAutoWrappingForNonListLine(lines[i]));
+                        sb.Append(NewLine);
+                        sb.Append(GetAutoWrappingForNonListLine(lines[i]));
                     }
                     else
                     {
-                        newLines.Add(GetAutoWrappingForNonListLine(lines[i]));
+                        sb.Append(GetAutoWrappingForNonListLine(lines[i]));
                     }
                 }
             }
 
-            return string.Join(NewLine, newLines);
+            return sb.ToString();
         }
 
-        private void AddParagraphs(string body, bool noNewLines = false)
+        private void AddParagraphs(string body)
         {
             if (string.IsNullOrWhiteSpace(body))
             {
                 return;
             }
 
-            if (this._mode != ParserMode.FormattingPreserve)
+            if (_Mode == ParserMode.FormattingPreserve)
             {
-                string[] paragraphs = body.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-                body = GetAutoWrappingForMarkdown(paragraphs.Select(para => GetEscapedMarkdownText(para.Trim())).ToArray());
+                WriteRaw(body);
+            }
+            else
+            {
+                string[] paragraphs = body.Split(new string[] { NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                //body = GetAutoWrappingForMarkdown(paragraphs.Select(para => GetEscapedMarkdownText(para.Trim())).ToArray());
+                body = GetAutoWrappingForMarkdown(paragraphs.Select(para => para.Trim()).ToArray());
+
+                Write(body);
             }
 
             // The the body already ended in a line break don't add extra lines on to the end
-            if (body.EndsWith("\r\n\r\n"))
-            {
-                noNewLines = true;
-            }
+            //if (body.EndsWith(LineBreak))
+            //{
+            //    noNewLines = true;
+            //}
 
-            _stringBuilder.AppendFormat("{0}{1}{1}", body, noNewLines ? null : NewLine);
+            //if (!noNewLines)
+            //{
+                WriteRaw(LineBreak);
+            //}
         }
 
-        private static string BackSlashMatchEvaluater(Match match)
+        private void WriteRaw(string text)
         {
-            // '\<' -> '\\<'
-            // '\\<' -> '\\<' - noop
-            // '\\\<' -> '\\\\<'
-
-            var g1 = match.Groups[1].Value;
-            var g2 = match.Groups[2].Value[0];
-
-            if (g1.Length % 2 == 0 && "<>()[]`".Contains(g2))
-            {
-                return @"\" + match.Value;
-            }
-
-            return match.Value;
+            _Writer.Write(text);
         }
 
-        // public just to make testing easier
-        public static string GetEscapedMarkdownText(string text)
+        private void WriteRaw(char c)
         {
-            // this is kind of a crazy replacement to handle escaping properly.
-            // we need to do the reverse operation in our markdown parser.
+            _Writer.Write(c);
+        }
 
-            // PS code: (((($text - replace '\\\\','\\\\') -replace '([<>])','\$1') -replace '\\([\[\]\(\)])', '\\$1')
+        private void Write(string text)
+        {
+            var bufferPos = 0;
 
-            // examples: 
-            // '\<' -> '\\\<'
-            // '\' -> '\'
-            // '\\' -> '\\\\'
-            // '<' -> '\<'
+            for (var inputPos = 0; inputPos < text.Length; inputPos++)
+            {
+                var c = text[inputPos];
 
-            text = text
-                .Replace(@"\\", @"\\\\");
+                if (ShouldEscape(c))
+                {
+                    if (c == Blackslash)
+                    {
+                        if (inputPos + 1 < text.Length && ShouldEscapeSlash(text[inputPos + 1]))
+                        {
+                            _WriteBuffer[bufferPos++] = Blackslash;
+                        }
+                        // Check for \\
+                        else if (text[inputPos + 1] == Blackslash)
+                        {
+                            _WriteBuffer[bufferPos++] = Blackslash;
+                            _WriteBuffer[bufferPos++] = Blackslash;
+                            _WriteBuffer[bufferPos++] = Blackslash;
 
-            text = Regex.Replace(text, @"(\\*)\\(.)", new MatchEvaluator(BackSlashMatchEvaluater));
+                            inputPos++;
+                        }
+                    }
+                    else
+                    {
+                        _WriteBuffer[bufferPos++] = Blackslash;
+                    }
+                }
 
-            return text
-                .Replace(@"<", @"\<")
-                .Replace(@">", @"\>")
+                if (IsSpace(c))
+                {
+                    _WriteBuffer[bufferPos++] = Space;
+                }
+                else if (IsDash(c))
+                {
+                    _WriteBuffer[bufferPos++] = '-';
+                }
+                else if (IsSingleQuote(c))
+                {
+                    _WriteBuffer[bufferPos++] = '\'';
+                }
+                else if (IsDoubleQuote(c))
+                {
+                    _WriteBuffer[bufferPos++] = '\"';
+                }
+                else
+                {
+                    _WriteBuffer[bufferPos++] = c;
+                }
 
-                .Replace(@"[", @"\[")
-                .Replace(@"]", @"\]")
-                // per https://github.com/PowerShell/platyPS/issues/121 we don't perform escaping for () in markdown renderer, but we do in the parser
-                //.Replace(@"(", @"\(")
-                //.Replace(@")", @"\)")
-                .Replace(@"`", @"\`");
+                if (bufferPos >= 100)
+                {
+                    _Writer.Write(_WriteBuffer, 0, bufferPos);
+                    bufferPos = 0;
+                }
+            }
+
+            if (bufferPos > 0)
+            {
+                _Writer.Write(_WriteBuffer, 0, bufferPos);
+            }
+        }
+
+        private static bool ShouldEscape(char c)
+        {
+            // per https://github.com/PowerShell/platyPS/issues/121 we don't perform escaping for () in markdown renderer, but we do in the parser
+            return c == Blackslash || c == '<' || c == '>' || c == '[' || c == ']' || c == '`';
+        }
+
+        private static bool ShouldEscapeSlash(char c)
+        {
+            return c == '<' || c == '>' || c == '[' || c == ']' || c == '`' || c == '(' || c == ')';
+        }
+
+        private static bool IsSpace(char c)
+        {
+            return c == Space || c == '\u00a0' || c == '\uc2a0';
+        }
+
+        private static bool IsDash(char c)
+        {
+            return c == '-' || c == '\u05be' || c == '\u1806' || c == '\u2010' || c == '\u2011' || c == '\u00AD' || c == '\u2012' || c == '\u2013' || c == '\u2014' || c == '\u2015' || c == '\u2212';
+        }
+
+        private static bool IsSingleQuote(char c)
+        {
+            return c == '\'' || c == '\u2018' || c == '\u2019' || c == '\u201b';
+        }
+
+        private static bool IsDoubleQuote(char c)
+        {
+            return c == '\"' || c == '\u201c' || c == '\u201d' || c == '\u201e' || c == '\u201f';
+        }
+
+        private static bool HasListPrefix(string s)
+        {
+            if (s.Length >= 2)
+            {
+                if (s[0] == '-' && s[1] == '-' ||
+                    s[0] == '-' && s[1] == ' ' ||
+                    s[0] == '*' && s[1] == ' ')
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

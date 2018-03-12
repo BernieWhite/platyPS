@@ -9,6 +9,7 @@ using Xunit;
 using System.Collections;
 using Markdown.MAML.Parser;
 using Markdown.MAML.Model.Markdown;
+using Markdown.MAML.Pipeline;
 
 namespace Markdown.MAML.Test.Renderer
 {
@@ -17,18 +18,20 @@ namespace Markdown.MAML.Test.Renderer
         [Fact]
         public void RendererUsesCorrectEscaping()
         {
-            Assert.Equal(@"\\\<", MarkdownV2Renderer.GetEscapedMarkdownText(@"\<"));
-            Assert.Equal(@"\\\`", MarkdownV2Renderer.GetEscapedMarkdownText(@"\`"));
-            Assert.Equal(@"\\\\\<", MarkdownV2Renderer.GetEscapedMarkdownText(@"\\<"));
-            Assert.Equal(@"\\\\\\\<", MarkdownV2Renderer.GetEscapedMarkdownText(@"\\\<"));
-            Assert.Equal(@"\", MarkdownV2Renderer.GetEscapedMarkdownText(@"\"));
-            Assert.Equal(@"\\\\", MarkdownV2Renderer.GetEscapedMarkdownText(@"\\"));
-            Assert.Equal(@"\\(", MarkdownV2Renderer.GetEscapedMarkdownText(@"\("));
-            Assert.Equal(@"(", MarkdownV2Renderer.GetEscapedMarkdownText(@"("));
-            Assert.Equal(@")", MarkdownV2Renderer.GetEscapedMarkdownText(@")"));
-            Assert.Equal(@"\[", MarkdownV2Renderer.GetEscapedMarkdownText(@"["));
-            Assert.Equal(@"\]", MarkdownV2Renderer.GetEscapedMarkdownText(@"]"));
-            Assert.Equal(@"\`", MarkdownV2Renderer.GetEscapedMarkdownText(@"`"));
+            var command = new MamlCommand
+            {
+                Name = "Get-Foo",
+                Synopsis = new SectionBody(@"\< \` \\< \\\< \ \\ \( ( ) [ ] `")
+            };
+
+            var markdown = PipelineBuilder.ToMarkdown(config => config.UseNoMetadata()).Process(command);
+
+            Assert.StartsWith(@"# Get-Foo
+
+## SYNOPSIS
+\\\< \\\` \\\\\< \\\\\\\< \ \\\\ \\( ( ) \[ \] \`
+
+## SYNTAX", markdown);
         }
 
         [Fact]
@@ -58,16 +61,40 @@ namespace Markdown.MAML.Test.Renderer
         }
 
         [Fact]
+        public void ReturnsOnlineVersionMetadata()
+        {
+            var linkUri = "https://github.com/PowerShell/platyPS/";
+
+            var command = new MamlCommand
+            {
+                Name = "Test-OnlineLink"
+            };
+
+            command.Links.Add(new MamlLink
+            {
+                LinkName = "Online Version:",
+                LinkUri = linkUri
+            });
+
+            var markdown = PipelineBuilder.ToMarkdown(config =>
+            {
+                config.SetOnlineVersionUrl();
+            }).Process(command);
+
+            Assert.Contains($"---\r\nonline version: {linkUri}", markdown);
+        }
+
+        [Fact]
         public void RendererIgnoresLineBreakWhenBodyIsEmpty()
         {
-            var renderer = new MarkdownV2Renderer(ParserMode.Full);
             MamlCommand command = new MamlCommand()
             {
                 Name = "Test-LineBreak",
                 Notes = new SectionBody("", SectionFormatOption.LineBreakAfterHeader)
             };
 
-            string markdown = renderer.MamlModelToString(command, null);
+            var markdown = PipelineBuilder.ToMarkdown().Process(command);
+            //string markdown = renderer.MamlModelToString(command, null);
 
             Assert.DoesNotContain("\r\n\r\n\r\n", markdown);
         }
@@ -75,9 +102,7 @@ namespace Markdown.MAML.Test.Renderer
         [Fact]
         public void RendererLineBreakAfterParameter()
         {
-            var renderer = new MarkdownV2Renderer(ParserMode.Full);
-
-            MamlCommand command = new MamlCommand()
+            var command = new MamlCommand()
             {
                 Name = "Test-LineBreak",
                 Synopsis = new SectionBody("This is the synopsis"),
@@ -116,13 +141,16 @@ namespace Markdown.MAML.Test.Renderer
             syntax1.Parameters.Add(parameter2);
             command.Syntax.Add(syntax1);
 
-            string markdown = renderer.MamlModelToString(command, null);
+            var markdown = PipelineBuilder.ToMarkdown().Process(command);
 
             // Does not use line break and should not be added
             Assert.Contains("### -Name\r\nName description.", markdown);
 
             // Uses line break and should be preserved
             Assert.Contains("### -Path\r\n\r\nPath description.", markdown);
+
+            // Confirm note markdown is generated
+            Assert.Contains("## NOTES\r\nThis is a note\r\n", markdown);
         }
 
         [Fact]
@@ -181,8 +209,6 @@ namespace Markdown.MAML.Test.Renderer
         [Fact]
         public void RendersExamplesFromMaml()
         {
-            var renderer = new MarkdownV2Renderer(ParserMode.Full);
-
             MamlCommand command = new MamlCommand()
             {
                 Name = "Test-LineBreak",
@@ -247,7 +273,8 @@ namespace Markdown.MAML.Test.Renderer
             command.Examples.Add(example6);
             command.Examples.Add(example7);
 
-            string markdown = renderer.MamlModelToString(command, null);
+            var markdown = PipelineBuilder.ToMarkdown().Process(command);
+            //string markdown = renderer.MamlModelToString(command, null);
 
             // Does not use line break and should not be added
             Assert.Contains("### Example 1\r\n```", markdown);
@@ -266,7 +293,6 @@ namespace Markdown.MAML.Test.Renderer
         [Fact]
         public void RendererCreatesWorkflowParametersEntry()
         {
-            var renderer = new MarkdownV2Renderer(ParserMode.Full);
             MamlCommand command = new MamlCommand()
             {
                 Name = "Workflow",
@@ -275,7 +301,8 @@ namespace Markdown.MAML.Test.Renderer
 
             command.Syntax.Add(new MamlSyntax());
 
-            string markdown = renderer.MamlModelToString(command, null);
+            var markdown = PipelineBuilder.ToMarkdown().Process(command);
+            //string markdown = renderer.MamlModelToString(command, null);
             Common.AssertMultilineEqual(@"---
 schema: 2.0.0
 ---
@@ -317,14 +344,14 @@ For more information, see about_CommonParameters (http://go.microsoft.com/fwlink
         [Fact]
         public void RendererNormalizeQuotesAndDashes()
         {
-            var renderer = new MarkdownV2Renderer(ParserMode.Full);
-            MamlCommand command = new MamlCommand()
+            var command = new MamlCommand
             {
                 Name = "Test-Quotes",
                 Description = new SectionBody(@"”“‘’––-")
             };
 
-            string markdown = renderer.MamlModelToString(command, null);
+            var markdown = PipelineBuilder.ToMarkdown().Process(command);
+
             Common.AssertMultilineEqual(@"---
 schema: 2.0.0
 ---
@@ -359,7 +386,6 @@ For more information, see about_CommonParameters (http://go.microsoft.com/fwlink
         [Fact]
         public void RendererProduceMarkdownV2Output()
         {
-            var renderer = new MarkdownV2Renderer(ParserMode.Full);
             MamlCommand command = new MamlCommand()
             {
                 Name = "Get-Foo",
@@ -434,10 +460,13 @@ For more information, see about_CommonParameters (http://go.microsoft.com/fwlink
             });
 
             // Note that the metadata should end up getting alphabetized.
-            var metadata = new Hashtable();
-            metadata["foo"] = "bar";
-            metadata["null"] = null;
-            string markdown = renderer.MamlModelToString(command, metadata);
+            var metadata = new Hashtable
+            {
+                ["foo"] = "bar",
+                ["null"] = null
+            };
+            command.SetMetadata(metadata);
+            var markdown = PipelineBuilder.ToMarkdown().Process(command);
             Common.AssertMultilineEqual(@"---
 foo: bar
 null:
@@ -537,7 +566,6 @@ Second line.
         [Fact]
         public void RenderesAllParameterSetMoniker()
         {
-            var renderer = new MarkdownV2Renderer(ParserMode.Full);
             MamlCommand command = new MamlCommand()
             {
                 Name = "Get-Foo",
@@ -588,7 +616,8 @@ Second line.
             command.Syntax.Add(syntax1);
             command.Syntax.Add(syntax2);
 
-            string markdown = renderer.MamlModelToString(command, null);
+            var markdown = PipelineBuilder.ToMarkdown().Process(command);
+            //string markdown = renderer.MamlModelToString(command, null);
             Common.AssertMultilineEqual(@"---
 schema: 2.0.0
 ---
@@ -671,8 +700,7 @@ For more information, see about_CommonParameters (http://go.microsoft.com/fwlink
         [Fact]
         public void RenderesWithPreservedFormatting()
         {
-            var renderer = new MarkdownV2Renderer(ParserMode.FormattingPreserve);
-            MamlCommand command = new MamlCommand()
+            var command = new MamlCommand
             {
                 Name = "Get-Foo",
                 SupportCommonParameters = false,
@@ -696,7 +724,8 @@ weired
                 }
             );
 
-            string markdown = renderer.MamlModelToString(command, null);
+            var markdown = PipelineBuilder.ToMarkdown(config => config.UsePreserveFormatting()).Process(command);
+
             Common.AssertMultilineEqual(@"---
 schema: 2.0.0
 ---

@@ -18,10 +18,10 @@ namespace Markdown.MAML.Transformer
             : base(
             String.Format(
                 "{0}:{1}:({2}) '{3}'\n {4}",
-                extent.File,
-                extent.Line.Start, 
-                extent.Column.Start, 
-                GetSnippet(extent.OriginalText), 
+                extent.Path,
+                extent.Start, 
+                extent.Column, 
+                GetSnippet(extent.Text), 
                 message)
             )
         {

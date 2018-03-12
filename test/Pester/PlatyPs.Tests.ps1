@@ -427,7 +427,6 @@ Describe 'New-MarkdownHelp' {
 
         New-Item -ItemType Directory $OutputFolder
 
-
         It "generates a landing page from Module"{
 
             New-MarkdownHelp -Module PlatyPS -OutputFolder $OutputFolder -WithModulePage -Force
@@ -435,7 +434,6 @@ Describe 'New-MarkdownHelp' {
             $LandingPage = Get-ChildItem (Join-Path $OutputFolder PlatyPS.md)
 
             $LandingPage | Should Not Be $null
-
         }
 
         It "generates a landing page from MAML"{
@@ -449,7 +447,6 @@ Describe 'New-MarkdownHelp' {
             $LandingPage = Get-ChildItem (Join-Path $OutputFolder PlatyPS.md)
 
             $LandingPage | Should Not Be $null
-
         }
     }
 
@@ -825,7 +822,6 @@ Describe 'Update-MarkdownHelp -LogPath' {
 Describe 'Get-MarkdownMetadata' {
     Context 'Simple markdown file' {
         Set-Content -Path TestDrive:\foo.md -Value @'
-
 ---
 a : 1
 
