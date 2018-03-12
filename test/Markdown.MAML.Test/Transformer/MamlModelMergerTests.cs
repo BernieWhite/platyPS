@@ -10,7 +10,7 @@ using Xunit;
 
 namespace Markdown.MAML.Test.Transformer
 {
-    public class MamlModelMergerTests
+    public sealed class MamlModelMergerTests
     {
         private string _reportStream;
         

@@ -1,11 +1,14 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using Markdown.MAML.Model.Markdown;
 
 namespace Markdown.MAML.Model.MAML
 {
-    public class MamlCommand
+    public sealed class MamlCommand
     {
-        public SourceExtent Extent { get; set; }
+        private const string ONLINE_VERSION_YAML_HEADER = "online version";
+        private const string MODULE_PAGE_MODULE_NAME = "Module Name";
 
         public string Name { get; set; }
 
@@ -34,7 +37,19 @@ namespace Markdown.MAML.Model.MAML
 
         public bool SupportCommonParameters { get; set; }
 
-        public string ModuleName { get; set; }
+        public string DefaultParameterSet { get; set; }
+
+        public string ModuleName
+        {
+            get { return GetMetadata(MODULE_PAGE_MODULE_NAME); }
+            set { SetMetadata(MODULE_PAGE_MODULE_NAME, value); }
+        }
+
+        public string OnlineVersionUrl
+        {
+            get { return GetMetadata(ONLINE_VERSION_YAML_HEADER); }
+            set { SetMetadata(ONLINE_VERSION_YAML_HEADER, value); }
+        }
 
         public List<MamlExample> Examples
         {
@@ -46,10 +61,12 @@ namespace Markdown.MAML.Model.MAML
             get { return _links; }
         }
 
-        public List<MamlSyntax> Syntax
+        public MamlPropertySet<MamlSyntax> Syntax
         {
             get { return _syntax; }
         }
+
+        public Dictionary<string, string> Metadata { get; set; }
 
         private List<MamlParameter> _parameters = new List<MamlParameter>();
 
@@ -61,12 +78,66 @@ namespace Markdown.MAML.Model.MAML
 
         private List<MamlLink> _links = new List<MamlLink>();
 
-        private List<MamlSyntax> _syntax = new List<MamlSyntax>();
+        private MamlPropertySet<MamlSyntax> _syntax = new MamlPropertySet<MamlSyntax>();
 
         public MamlCommand()
         {
             // this is the default most often then not
-            this.SupportCommonParameters = true;
+            SupportCommonParameters = true;
+
+            Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        public void SetMetadata(Hashtable hashtable)
+        {
+            if (hashtable == null || hashtable.Count == 0)
+            {
+                return;
+            }
+
+            if (Metadata == null)
+            {
+                Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            foreach (DictionaryEntry pair in hashtable)
+            {
+                Metadata[pair.Key.ToString()] = pair.Value == null ? string.Empty : pair.Value.ToString();
+            }
+        }
+
+        public void SetMetadata(string key, string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return;
+            }
+
+            if (Metadata == null)
+            {
+                Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            Metadata[key] = value;
+        }
+
+        public string GetMetadata(string key)
+        {
+            if (Metadata == null || !Metadata.ContainsKey(key))
+            {
+                return null;
+            }
+
+            return Metadata[key];
+        }
+
+        public static MamlCommand Create()
+        {
+            return new MamlCommand
+            {
+                Synopsis = new SectionBody("{{Fill in the Synopsis}}"),
+                Description = new SectionBody("{{Fill in the Description}}")
+            };
         }
     }
 }

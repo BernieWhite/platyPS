@@ -397,7 +397,6 @@ Describe 'New-MarkdownHelp' {
 
         New-Item -ItemType Directory $OutputFolder
 
-
         It "generates a landing page from Module"{
 
             New-MarkdownHelp -Module PlatyPS -OutputFolder $OutputFolder -WithModulePage -Force
@@ -405,7 +404,6 @@ Describe 'New-MarkdownHelp' {
             $LandingPage = Get-ChildItem (Join-Path $OutputFolder PlatyPS.md)
 
             $LandingPage | Should Not Be $null
-
         }
 
         It "generates a landing page from MAML"{
@@ -419,7 +417,6 @@ Describe 'New-MarkdownHelp' {
             $LandingPage = Get-ChildItem (Join-Path $OutputFolder PlatyPS.md)
 
             $LandingPage | Should Not Be $null
-
         }
     }
 	
@@ -522,7 +519,7 @@ Describe 'New-ExternalHelp -ErrorLogFile' {
       try {
          # Don't add metadata so the file has an error
          $file = New-MarkdownHelp -Command 'Test-OrderFunction' -OutputFolder $TestDrive -Force -NoMetadata
-         $maml = $file | New-ExternalHelp -OutputPath "$TestDrive\TestOrderFunction.xml" -ErrorLogFile "$TestDrive\warningsAndErrors.json" -Force      
+         $maml = $file | New-ExternalHelp -OutputPath "$TestDrive\TestOrderFunction.xml" -ErrorLogFile "$TestDrive\warningsAndErrors.json" -Force
       }
       catch {
          # Ignore the error. I just needed an error to write to the log file.
@@ -794,7 +791,6 @@ Describe 'Update-MarkdownHelp -LogPath' {
 Describe 'Get-MarkdownMetadata' {
     Context 'Simple markdown file' {
         Set-Content -Path TestDrive:\foo.md -Value @'
-
 ---
 a : 1
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,7 +10,8 @@ namespace Markdown.MAML.Model.MAML
     /// <summary>
     /// This class represents the related links properties for MAML
     /// </summary>
-    public class MamlLink : IEquatable<MamlLink>
+    [DebuggerDisplay("{LinkName}: {LinkUri}")]
+    public sealed class MamlLink : IEquatable<MamlLink>
     {
         /// <summary>
         /// This is a workaround for PreserveFormatting

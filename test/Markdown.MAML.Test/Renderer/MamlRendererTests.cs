@@ -8,15 +8,15 @@ using Xunit;
 using Markdown.MAML.Test.EndToEnd;
 using Markdown.MAML.Model.MAML;
 using Markdown.MAML.Model.Markdown;
+using Markdown.MAML.Pipeline;
 
 namespace Markdown.MAML.Test.Renderer
 {
-    public class MamlRendererTests
+    public sealed class MamlRendererTests
     {
         [Fact]
         public void RendererProduceNameAndSynopsis()
         {
-            MamlRenderer renderer = new MamlRenderer();
             MamlCommand command = new MamlCommand()
             {
                 Name = "Get-Foo",
@@ -52,9 +52,8 @@ namespace Markdown.MAML.Test.Renderer
             );
             command.Inputs.Add(new MamlInputOutput()
             {
-                    TypeName = "String",
-                    Description = "Input Description goes here!"
-                    
+                TypeName = "String",
+                Description = "Input Description goes here!"
             }
             );
             command.Outputs.Add(new MamlInputOutput()
@@ -84,7 +83,7 @@ namespace Markdown.MAML.Test.Renderer
             }
             );
 
-            string maml = renderer.MamlModelToString(new [] {command});
+            var maml = MamlToXmlString(command);
 
             string[] name = EndToEndTests.GetXmlContent(maml, "/msh:helpItems/command:command/command:details/command:name");
             Assert.Single(name);
@@ -119,7 +118,6 @@ namespace Markdown.MAML.Test.Renderer
         [Fact]
         public void RendererProduceSyntaxAndParameter()
         {
-            MamlRenderer renderer = new MamlRenderer();
             MamlCommand command = new MamlCommand()
             {
                 Name = "Get-Foo",
@@ -147,7 +145,7 @@ namespace Markdown.MAML.Test.Renderer
             syntax.Parameters.Add(param2);
             command.Syntax.Add(syntax);
 
-            string maml = renderer.MamlModelToString(new[] { command });
+            var maml = MamlToXmlString(command);
 
             string[] syntaxItemName = EndToEndTests.GetXmlContent(maml, "/msh:helpItems/command:command/command:syntax/command:syntaxItem/maml:name");
             Assert.Single(syntaxItemName);
@@ -165,16 +163,53 @@ namespace Markdown.MAML.Test.Renderer
         }
 
         [Fact]
+        public void ListWithBreakIsPreserved()
+        {
+            var command = new MamlCommand
+            {
+                Name = "Test-ListBreak"
+            };
+
+            var parameter1 = new MamlParameter
+            {
+                Type = "String",
+                Name = "Name",
+                Required = true,
+                Description = @"This is a parameter with a list:
+
+- Item 1
+- Item 2
+- Item 3",
+                Globbing = true
+            };
+
+            command.Parameters.Add(parameter1);
+
+            var maml = MamlToXmlString(command);
+
+            string[] parameter1Xml = EndToEndTests.GetXmlContent(maml, "/msh:helpItems/command:command/command:parameters/command:parameter[maml:name='Name']/maml:Description/maml:para");
+
+            Assert.NotNull(parameter1Xml);
+            Assert.Equal(7, parameter1Xml.Length);
+            Assert.Equal(@"This is a parameter with a list:
+
+- Item 1
+
+- Item 2
+
+- Item 3", string.Join("\r\n", parameter1Xml));
+        }
+
+        [Fact]
         public void RendererProduceEscapeXmlSpecialChars()
         {
-            MamlRenderer renderer = new MamlRenderer();
             MamlCommand command = new MamlCommand()
             {
                 Name = "Get-Foo",
                 Synopsis = new SectionBody("<port&number>") // < and > should be properly escaped
             };
-            
-            string maml = renderer.MamlModelToString(new[] { command });
+
+            var maml = MamlToXmlString(command);
 
             string[] synopsis = EndToEndTests.GetXmlContent(maml, "/msh:helpItems/command:command/command:details/maml:description/maml:para");
             Assert.Single(synopsis);
@@ -184,7 +219,6 @@ namespace Markdown.MAML.Test.Renderer
         [Fact]
         public void RendererProducePaddedExampleTitle()
         {
-            MamlRenderer renderer = new MamlRenderer();
             MamlCommand command = new MamlCommand()
             {
                 Name = "Get-Foo",
@@ -224,7 +258,7 @@ namespace Markdown.MAML.Test.Renderer
             command.Examples.Add(exampleWithTitle);
             command.Examples.Add(exampleWithLongTitle);
 
-            string maml = renderer.MamlModelToString(new[] { command });
+            var maml = MamlToXmlString(command);
 
             // Check that example header is padded by dashes (-) unless to long
             string[] example = EndToEndTests.GetXmlContent(maml, "/msh:helpItems/command:command/command:examples/command:example/maml:title");
@@ -236,6 +270,31 @@ namespace Markdown.MAML.Test.Renderer
             Assert.Matches($"^-+ {example10.Title} -+$", example[1]);
             Assert.Matches($"^-+ {exampleWithTitle.Title} -+$", example[2]);
             Assert.Matches($"^{exampleWithLongTitle.Title}$", example[3]);
+        }
+
+        [Fact]
+        public void ProducesOnlineLink()
+        {
+            var command = new MamlCommand()
+            {
+                Name = "Get-Foo"
+            };
+
+            command.SetMetadata("online version", "https://github.com/PowerShell/platyPS");
+
+            var maml = MamlToXmlString(command);
+
+            var relatedLinks = EndToEndTests.GetXmlContent(maml, "/msh:helpItems/command:command/command:relatedLinks/maml:navigationLink/maml:uri");
+
+            Assert.Single(relatedLinks);
+            Assert.Equal("https://github.com/PowerShell/platyPS", relatedLinks[0]);
+        }
+
+        private string MamlToXmlString(MamlCommand command)
+        {
+            return PipelineBuilder.ToMamlXml(config =>
+            {
+            }).Process(new[] { command });
         }
     }
 

@@ -1,8 +1,10 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace Markdown.MAML.Model.MAML
 {
-    public class MamlSyntax
+    [DebuggerDisplay("ParameterSetName = {ParameterSetName}")]
+    public sealed class MamlSyntax : INamed
     {
         public MamlSyntax()
         {
@@ -18,5 +20,10 @@ namespace Markdown.MAML.Model.MAML
         public List<MamlParameter> Parameters { get { return _parameters; } }
 
         private List<MamlParameter> _parameters = new List<MamlParameter>();
+
+        string INamed.Name
+        {
+            get { return ParameterSetName ?? string.Empty; }
+        }
     }
 }

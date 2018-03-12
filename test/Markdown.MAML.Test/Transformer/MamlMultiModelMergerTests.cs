@@ -1,10 +1,10 @@
 ﻿using Markdown.MAML.Model.MAML;
+using Markdown.MAML.Model.Markdown;
+using Markdown.MAML.Pipeline;
 using Markdown.MAML.Transformer;
-using Markdown.MAML.Renderer;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
-using Markdown.MAML.Model.Markdown;
 
 namespace Markdown.MAML.Test.Transformer
 {
@@ -14,12 +14,14 @@ namespace Markdown.MAML.Test.Transformer
         public void Merge3SimpleModels()
         {
             var merger = new MamlMultiModelMerger(null, false, "! ");
-            var input = new Dictionary<string, MamlCommand>();
-            input["First"] = GetModel1();
-            input["Second"] = GetModel2();
-            input["Third"] = GetModel3();
+            var input = new Dictionary<string, MamlCommand>
+            {
+                ["First"] = GetModel1(),
+                ["Second"] = GetModel2(),
+                ["Third"] = GetModel3()
+            };
 
-             var result = merger.Merge(input);
+            var result = merger.Merge(input);
 
             Common.AssertMultilineEqual(result.Synopsis.Text, @"! First, Second
 
@@ -304,9 +306,11 @@ Third Command
             // First merge two models with default syntax names 
 
             var merger = new MamlMultiModelMerger(null, false, "! ");
-            var input = new Dictionary<string, MamlCommand>();
-            input["First"] = GetModel1();
-            input["Second"] = GetModel2();
+            var input = new Dictionary<string, MamlCommand>
+            {
+                ["First"] = GetModel1(),
+                ["Second"] = GetModel2()
+            };
 
             var result = merger.Merge(input);
 
@@ -326,8 +330,9 @@ Third Command
 
             // next render it as markdown and make sure that we don't crash
 
-            var renderer = new MarkdownV2Renderer(MAML.Parser.ParserMode.FormattingPreserve);
-            string markdown = renderer.MamlModelToString(result, true);
+            var markdown = PipelineBuilder.ToMarkdown().Process(result);
+            //var renderer = new MarkdownV2Renderer(MAML.Parser.ParserMode.FormattingPreserve);
+            //string markdown = renderer.MamlModelToString(result, true);
 
             int yamlLinesCount = markdown.Split('\n').Select(s => s.Trim()).Where(s => s.Equals("```yaml")).Count();
             // verify that ```yaml are all on a separate line

@@ -1,22 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Xunit;
-using Markdown.MAML.Model.Markdown;
-using Markdown.MAML.Parser;
+﻿using Markdown.MAML.Pipeline;
 using Markdown.MAML.Renderer;
+using System.Linq;
+using Xunit;
 
 namespace Markdown.MAML.Test.Renderer
 {
-    public class TextRendererTests
+    public sealed class TextRendererTests
     {
         [Fact]
         public void RendererCreatesAboutTopicString()
         {
-            var renderer = new TextRenderer(80);
-            MarkdownParser parser = new MarkdownParser();
             string markdown = @"# TopicName
 ## about_TopicName
 
@@ -69,15 +62,13 @@ The generated about topic will be encoded UTF-8.
 
 # KEYWORDS
 {{List alternate names or titles for this topic that readers might use.}}
-
 - {{Keyword Placeholder}}
 - {{Keyword Placeholder}}
 - {{Keyword Placeholder}}
 - {{Keyword Placeholder}}
 ";
-            DocumentNode document = parser.ParseString(new string[] { markdown });
 
-            string content = renderer.AboutMarkdownToString(document);
+            var content = MarkdownToString(markdown);
 
             string expectedOut = @"TOPIC
     about_topicname
@@ -129,17 +120,13 @@ KEYWORDS
     - {{Keyword Placeholder}}
     - {{Keyword Placeholder}}
     - {{Keyword Placeholder}}
-
 ";
             Common.AssertMultilineEqual(expectedOut, content);
         }
 
-
         [Fact]
         public void RendererSuccessfullParsesMultiLineAboutContent()
         {
-            var renderer = new TextRenderer(80);
-            MarkdownParser parser = new MarkdownParser();
             string markdown = @"# About Throw
 ## about_Throw
 
@@ -292,9 +279,7 @@ function Get-XMLFiles
 - about_Trap
 - about_Try_Catch_Finally
 ";
-            DocumentNode document = parser.ParseString(new string[] { markdown });
-
-            string content = renderer.AboutMarkdownToString(document);
+            var content = MarkdownToString(markdown);
 
             string expectedOut = @"TOPIC
     about_throw
@@ -416,9 +401,14 @@ SEE ALSO
     - about_Scope
     - about_Trap
     - about_Try_Catch_Finally
-
 ";
             Common.AssertMultilineEqual(expectedOut, content);
+        }
+
+        private string MarkdownToString(string markdown)
+        {
+            var pipeline = PipelineBuilder.ToAboutText();
+            return pipeline.Process(markdown, path: null);
         }
     }
 }

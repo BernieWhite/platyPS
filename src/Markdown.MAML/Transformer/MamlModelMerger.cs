@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace Markdown.MAML.Transformer
 {
-    public class MamlModelMerger
+    public sealed class MamlModelMerger
     {
         private Action<string> _infoCallback;
 
@@ -35,7 +35,6 @@ namespace Markdown.MAML.Transformer
                     Synopsis = stringModel.Synopsis,
                     Description = stringModel.Description,
                     Notes = stringModel.Notes,
-                    Extent = stringModel.Extent
                 };
             }
             catch (Exception ex)
@@ -104,7 +103,10 @@ namespace Markdown.MAML.Transformer
                 // we care only about metadata for parameters in syntax
                 try
                 {
-                    result.Syntax.AddRange(metadataModel.Syntax);
+                    foreach (var syntax in metadataModel.Syntax)
+                    {
+                        result.Syntax.Add(syntax);
+                    }
                 }
                 catch (Exception ex)
                 {

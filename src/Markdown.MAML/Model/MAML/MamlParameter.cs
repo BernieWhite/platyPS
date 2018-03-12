@@ -2,10 +2,12 @@
 using Markdown.MAML.Model.Markdown;
 using System;
 using System.Linq;
+using System.Diagnostics;
 
 namespace Markdown.MAML.Model.MAML
 {
-    public class MamlParameter
+    [DebuggerDisplay("Name = {Name}, Required = {Required}")]
+    public sealed class MamlParameter : INamed
     {
         public SourceExtent Extent { get; set; }
 
@@ -55,8 +57,9 @@ namespace Markdown.MAML.Model.MAML
             get { return _parameterValueGroup; }
         }
 
+        public string[] ParameterSet { get; set; }
+
         private readonly List<string> _parameterValueGroup = new List<string>();
- 
 
         public MamlParameter()
         {
@@ -71,39 +74,6 @@ namespace Markdown.MAML.Model.MAML
         public MamlParameter Clone()
         {
             return (MamlParameter)this.MemberwiseClone();
-        }
-
-        public bool IsMetadataEqual(MamlParameter other)
-        {
-            return StringComparer.OrdinalIgnoreCase.Equals(this.Name, other.Name) &&
-                this.Required == other.Required &&
-                StringComparer.OrdinalIgnoreCase.Equals(this.Position, other.Position) &&
-                StringComparer.OrdinalIgnoreCase.Equals(this.PipelineInput, other.PipelineInput) &&
-                this.Globbing == other.Globbing;
-        }
-
-        public bool IsSwitchParameter()
-        {
-            return StringComparer.OrdinalIgnoreCase.Equals(this.Type, "SwitchParameter") ||
-                StringComparer.OrdinalIgnoreCase.Equals(this.Type, "switch");
-        }
-
-        public bool IsNamed()
-        {
-            return string.IsNullOrWhiteSpace(this.Position) ||
-                StringComparer.OrdinalIgnoreCase.Equals(this.Position, "Named");
-        }
-
-        public bool IsApplicable(string[] applicableTag)
-        {
-            if (applicableTag != null && this.Applicable != null)
-            {
-                // applicable if intersect is not empty
-                return applicableTag.Intersect(this.Applicable, StringComparer.OrdinalIgnoreCase).Any();
-            }
-
-            // if one is null then it's applicable
-            return true;
         }
     }
 }
