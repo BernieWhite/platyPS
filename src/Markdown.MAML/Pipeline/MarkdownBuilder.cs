@@ -76,6 +76,11 @@ namespace Markdown.MAML.Pipeline
             AddMamlAction(MamlCommandActions.DetectOnlineVersionMetadata);
         }
 
+        public void DetectPowerShellLanguage(string infoString)
+        {
+            AddMamlAction((node, next) => MamlCommandActions.DetectLanguage(node, next, infoString));
+        }
+
         public void AddMamlAction(VisitMamlCommandAction action)
         {
             // Nest the previous write action in the new supplied action

@@ -173,11 +173,6 @@ namespace Markdown.MAML.Renderer
                     remaining = maxWidth;
                 }
 
-                if (remaining == maxWidth)
-                {
-                    AppendIndent();
-                }
-
                 var text = _Stream.Current.Text;
 
                 // The text will fit in the remaining character of the line
@@ -186,12 +181,23 @@ namespace Markdown.MAML.Renderer
                     if (remaining < maxWidth)
                     {
                         AppendEnding(MarkdownTokenFlag.LineEnding);
+                        remaining = maxWidth;
+                    }
+
+                    if (remaining == maxWidth)
+                    {
+                        AppendIndent();
                     }
 
                     Append(text);
                 }
                 else if (text.Length <= remaining)
                 {
+                    if (remaining == maxWidth)
+                    {
+                        AppendIndent();
+                    }
+
                     Append(text);
 
                     remaining -= text.Length;

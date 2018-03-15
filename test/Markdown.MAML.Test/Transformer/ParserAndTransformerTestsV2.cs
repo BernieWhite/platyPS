@@ -1,15 +1,12 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using Markdown.MAML.Model.MAML;
-using Markdown.MAML.Parser;
-using Markdown.MAML.Transformer;
-using Xunit;
+﻿using Markdown.MAML.Model.MAML;
 using Markdown.MAML.Model.Markdown;
 using Markdown.MAML.Pipeline;
+using System.Linq;
+using Xunit;
 
 namespace Markdown.MAML.Test.Transformer
 {
-    public class ParserAndTransformerTestsV2
+    public sealed class ParserAndTransformerTestsV2
     {
         [Fact]
         public void TransformSimpleCommand()
@@ -62,6 +59,9 @@ This is Synopsis
             Assert.Equal("2.0.0", mamlCommand.Metadata["schema"]);
         }
 
+        /// <summary>
+        /// Markdown should still parse and trailing line breaks will not be added to command model.
+        /// </summary>
         [Fact]
         public void TransformCommandWithExtraLine()
         {
@@ -71,10 +71,43 @@ This is Synopsis
 ##SYNOPSIS
 Adds custom properties and methods to an instance of a Windows PowerShell object.
 
+
+
+## Description
+
+This is a description.
+
+
+
+
+
+## PARAMETERS
+
+### -Name
+
+This is the name parameter.
+
+
+
+
+```yaml
+Type: String
+Parameter Sets: (All)
+Aliases:
+
+Required: True
+Position: 0
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ");
 
             Assert.Equal("Add-Member", mamlCommand.Name);
             Assert.Equal("Adds custom properties and methods to an instance of a Windows PowerShell object.", mamlCommand.Synopsis.Text);
+            Assert.Equal("This is a description.", mamlCommand.Description.Text);
+            Assert.Equal("This is the name parameter.", mamlCommand.Parameters[0].Description);
         }
 
         [Fact]

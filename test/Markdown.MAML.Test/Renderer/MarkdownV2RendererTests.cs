@@ -1,19 +1,13 @@
-﻿using Markdown.MAML.Renderer;
-using Markdown.MAML.Model.MAML;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Xunit;
-using System.Collections;
-using Markdown.MAML.Parser;
+﻿using Markdown.MAML.Model.MAML;
 using Markdown.MAML.Model.Markdown;
 using Markdown.MAML.Pipeline;
+using Markdown.MAML.Renderer;
+using System.Collections;
+using Xunit;
 
 namespace Markdown.MAML.Test.Renderer
 {
-    public class MarkdownV2RendererTests
+    public sealed class MarkdownV2RendererTests
     {
         [Fact]
         public void RendererUsesCorrectEscaping()
@@ -94,7 +88,6 @@ namespace Markdown.MAML.Test.Renderer
             };
 
             var markdown = PipelineBuilder.ToMarkdown().Process(command);
-            //string markdown = renderer.MamlModelToString(command, null);
 
             Assert.DoesNotContain("\r\n\r\n\r\n", markdown);
         }
@@ -154,56 +147,20 @@ namespace Markdown.MAML.Test.Renderer
         }
 
         [Fact]
-        public void RendererLineBreakAfterParameterForUpdate()
+        public void RendererUsesCorrectLineEndingsInLists()
         {
-            var renderer = new MarkdownV2Renderer(ParserMode.FormattingPreserve);
-
-            MamlCommand command = new MamlCommand()
+            var command = new MamlCommand()
             {
-                Name = "Test-LineBreak",
+                Name = "Test-List",
                 Synopsis = new SectionBody("This is the synopsis"),
-                Description = new SectionBody("This is a long description"),
+                Description = new SectionBody("This is a long description with a list:\r\n\r\n- List item 1.\r\n- List item 2.\r\n"),
                 Notes = new SectionBody("This is a note")
             };
 
-            var parameter1 = new MamlParameter()
-            {
-                Type = "String",
-                Name = "Name",
-                Required = true,
-                Description = "Name description.",
-                Globbing = true
-            };
-
-            var parameter2 = new MamlParameter()
-            {
-                Type = "String",
-                Name = "Path",
-                FormatOption = SectionFormatOption.LineBreakAfterHeader,
-                Required = true,
-                Description = "Path description.",
-                Globbing = true
-            };
-
-            command.Parameters.Add(parameter1);
-            command.Parameters.Add(parameter2);
-
-            var syntax1 = new MamlSyntax()
-            {
-                ParameterSetName = "ByName"
-            };
-
-            syntax1.Parameters.Add(parameter1);
-            syntax1.Parameters.Add(parameter2);
-            command.Syntax.Add(syntax1);
-
-            string markdown = renderer.MamlModelToString(command, null);
+            var markdown = PipelineBuilder.ToMarkdown().Process(command);
 
             // Does not use line break and should not be added
-            Assert.Contains("### -Name\r\nName description.\r\n\r\n```yaml", markdown);
-
-            // Uses line break and should be preserved
-            Assert.Contains("### -Path\r\n\r\nPath description.\r\n\r\n```yaml", markdown);
+            Assert.Contains("This is a long description with a list:\r\n\r\n- List item 1.\r\n- List item 2.\r\n", markdown);
         }
 
         [Fact]
