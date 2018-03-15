@@ -369,7 +369,7 @@ function Update-MarkdownHelp
                     return
                 }
                 
-                $reflectionModel = GetMamlObject -Cmdlet $name -UseFullTypeName:$UseFullTypeName
+                $reflectionModel = GetMamlObject -Cmdlet $name -UseFullTypeName:$UseFullTypeName;
 
                 $merger = New-Object Markdown.MAML.Transformer.MamlModelMerger -ArgumentList $infoCallback
                 $newModel = $merger.Merge($reflectionModel, $oldModel);
@@ -824,23 +824,20 @@ function New-ExternalHelp
             }
 
             # Create a pipeline to render about topics
-            $aboutPipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToAboutTopic();
+            $aboutPipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToAboutText();
         
             # handle about topics
             if ($AboutFiles.Count -gt 0) {
                 foreach ($About in $AboutFiles) {
-                $r = New-Object -TypeName 'Markdown.MAML.Renderer.TextRendererV2' -ArgumentList($MaxAboutWidth)
-                $Content = Get-Content -Raw $About.FullName
 
-                # Process the about topic
-                $model = $aboutPipeline.Process($Content, '')[0];
-                $value = $r.AboutMarkDownToString($model)
+                    # Process the about topic
+                    $text = $aboutPipeline.Process($About.FullName, $Encoding);
 
-                $outPath = Join-Path $OutputPath ([io.path]::GetFileNameWithoutExtension($About.FullName) + ".help.txt")
-                if (!(Split-Path -Leaf $outPath).ToUpper().StartsWith("ABOUT_", $true, $null)) {
-                    $outPath = Join-Path (Split-Path -Parent $outPath) ("about_" + (Split-Path -Leaf $outPath))
-                }
-                MySetContent -Path $outPath -Value $value -Encoding $Encoding -Force:$Force
+                    $outPath = Join-Path $OutputPath ([io.path]::GetFileNameWithoutExtension($About.FullName) + ".help.txt")
+                    if (!(Split-Path -Leaf $outPath).ToUpper().StartsWith("ABOUT_", $true, $null)) {
+                        $outPath = Join-Path (Split-Path -Parent $outPath) ("about_" + (Split-Path -Leaf $outPath))
+                    }
+                    MySetContent -Path $outPath -Value $text -Encoding $Encoding -Force:$Force
                 }
             }
         }
@@ -892,7 +889,7 @@ function Get-HelpPreview
             # this is Resolve-Path that resolves mounted drives (i.e. good for tests)
             $MamlFilePath = (Get-ChildItem $MamlFilePath).FullName
 
-            # Read the mam; file
+            # Read the maml file
             $xml = [xml](Get-Content $MamlFilePath -Raw -ea SilentlyContinue)
             if (-not $xml)
             {

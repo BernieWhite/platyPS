@@ -1,14 +1,8 @@
-﻿using System.Collections.Generic;
-using System.Xml;
-using System.Xml.XPath;
-using Markdown.MAML.Parser;
-using Markdown.MAML.Renderer;
-using Markdown.MAML.Transformer;
-using Xunit;
-using Markdown.MAML.Test.EndToEnd;
-using Markdown.MAML.Model.MAML;
+﻿using Markdown.MAML.Model.MAML;
 using Markdown.MAML.Model.Markdown;
 using Markdown.MAML.Pipeline;
+using Markdown.MAML.Test.EndToEnd;
+using Xunit;
 
 namespace Markdown.MAML.Test.Renderer
 {

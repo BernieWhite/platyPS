@@ -11,12 +11,7 @@ namespace Markdown.MAML.Pipeline
     {
         public static VisitMamlCommand EmptyMamlCommandDelegate = next => { return true; };
 
-        public static void AddDetectLanguage(this MarkdownOption option, string infoString)
-        {
-            //option.AddMarkdownWriteAction((node, next) => DetectLanguage(node, next, infoString));
-        }
-
-        private static void DetectLanguage(MamlCommand node, VisitMamlCommand next, string infoString)
+        public static bool DetectLanguage(MamlCommand node, VisitMamlCommand next, string infoString)
         {
             // Process example code blocks
             if (node.Examples != null)
@@ -28,7 +23,7 @@ namespace Markdown.MAML.Pipeline
             }
 
             // Continue to next action
-            next(node);
+            return next(node);
         }
 
         /// <summary>

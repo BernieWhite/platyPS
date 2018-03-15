@@ -1,6 +1,4 @@
 ﻿using Markdown.MAML.Pipeline;
-using Markdown.MAML.Renderer;
-using System.Linq;
 using Xunit;
 
 namespace Markdown.MAML.Test.Renderer
@@ -10,7 +8,7 @@ namespace Markdown.MAML.Test.Renderer
         [Fact]
         public void RendererCreatesAboutTopicString()
         {
-            string markdown = @"# TopicName
+            var markdown = @"# TopicName
 ## about_TopicName
 
 ```
@@ -68,9 +66,9 @@ The generated about topic will be encoded UTF-8.
 - {{Keyword Placeholder}}
 ";
 
-            var content = MarkdownToString(markdown);
+            var actual = MarkdownToString(markdown);
 
-            string expectedOut = @"TOPIC
+            var expected = @"TOPIC
     about_topicname
 
     ABOUT TOPIC NOTE:
@@ -121,13 +119,13 @@ KEYWORDS
     - {{Keyword Placeholder}}
     - {{Keyword Placeholder}}
 ";
-            Common.AssertMultilineEqual(expectedOut, content);
+            Common.AssertMultilineEqual(expected, actual);
         }
 
         [Fact]
         public void RendererSuccessfullParsesMultiLineAboutContent()
         {
-            string markdown = @"# About Throw
+            var markdown = @"# About Throw
 ## about_Throw
 
 # SHORT DESCRIPTION
@@ -279,9 +277,9 @@ function Get-XMLFiles
 - about_Trap
 - about_Try_Catch_Finally
 ";
-            var content = MarkdownToString(markdown);
+            var actual = MarkdownToString(markdown);
 
-            string expectedOut = @"TOPIC
+            var expected = @"TOPIC
     about_throw
 
 SHORT DESCRIPTION
@@ -402,13 +400,37 @@ SEE ALSO
     - about_Trap
     - about_Try_Catch_Finally
 ";
-            Common.AssertMultilineEqual(expectedOut, content);
+            Common.AssertMultilineEqual(expected, actual);
+        }
+
+        [Fact]
+        public void RendererUsesCorrectLineEndingsInLists()
+        {
+            var markdown = @"# TopicName
+## about_TopicName
+
+# TEST 1
+This is a description with a list.
+
+- This is item 1
+";
+
+            var actual = MarkdownToString(markdown);
+
+            var expected = @"TOPIC
+    about_topicname
+
+TEST 1
+    This is a description with a list.
+    - This is item 1
+";
+
+            Common.AssertMultilineEqual(expected, actual);
         }
 
         private string MarkdownToString(string markdown)
         {
-            var pipeline = PipelineBuilder.ToAboutText();
-            return pipeline.Process(markdown, path: null);
+            return PipelineBuilder.ToAboutText().Process(markdown, path: null);
         }
     }
 }

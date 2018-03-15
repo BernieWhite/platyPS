@@ -887,8 +887,8 @@ And [hyper](http://link.com).
     }
 
     $v2maml = New-ExternalHelp -Path $v2md.FullName -OutputPath "$OutputFolder\v2"
-    $v2markdown = $v2md | Get-Content -raw 
-    $help = Get-HelpPreview -Path $v2maml 
+    $v2markdown = $v2md | Get-Content -raw
+    $help = Get-HelpPreview -Path $v2maml
     
     It 'has both parameters' {
         $names = $help.Parameters.parameter.Name

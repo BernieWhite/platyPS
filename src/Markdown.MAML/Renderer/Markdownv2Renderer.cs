@@ -618,15 +618,12 @@ namespace Markdown.MAML.Renderer
             }
 
             // The the body already ended in a line break don't add extra lines on to the end
-            //if (body.EndsWith(LineBreak))
-            //{
-            //    noNewLines = true;
-            //}
+            var noNewLines = body.EndsWith(NewLine);
 
-            //if (!noNewLines)
-            //{
+            if (!noNewLines)
+            {
                 WriteRaw(LineBreak);
-            //}
+            }
         }
 
         private void WriteRaw(string text)

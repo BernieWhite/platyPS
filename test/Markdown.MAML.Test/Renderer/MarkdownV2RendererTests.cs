@@ -1,19 +1,13 @@
-﻿using Markdown.MAML.Renderer;
-using Markdown.MAML.Model.MAML;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Xunit;
-using System.Collections;
-using Markdown.MAML.Parser;
+﻿using Markdown.MAML.Model.MAML;
 using Markdown.MAML.Model.Markdown;
 using Markdown.MAML.Pipeline;
+using Markdown.MAML.Renderer;
+using System.Collections;
+using Xunit;
 
 namespace Markdown.MAML.Test.Renderer
 {
-    public class MarkdownV2RendererTests
+    public sealed class MarkdownV2RendererTests
     {
         [Fact]
         public void RendererUsesCorrectEscaping()
@@ -94,7 +88,6 @@ namespace Markdown.MAML.Test.Renderer
             };
 
             var markdown = PipelineBuilder.ToMarkdown().Process(command);
-            //string markdown = renderer.MamlModelToString(command, null);
 
             Assert.DoesNotContain("\r\n\r\n\r\n", markdown);
         }
@@ -151,6 +144,23 @@ namespace Markdown.MAML.Test.Renderer
 
             // Confirm note markdown is generated
             Assert.Contains("## NOTES\r\nThis is a note\r\n", markdown);
+        }
+
+        [Fact]
+        public void RendererUsesCorrectLineEndingsInLists()
+        {
+            var command = new MamlCommand()
+            {
+                Name = "Test-List",
+                Synopsis = new SectionBody("This is the synopsis"),
+                Description = new SectionBody("This is a long description with a list:\r\n\r\n- List item 1.\r\n- List item 2.\r\n"),
+                Notes = new SectionBody("This is a note")
+            };
+
+            var markdown = PipelineBuilder.ToMarkdown().Process(command);
+
+            // Does not use line break and should not be added
+            Assert.Contains("This is a long description with a list:\r\n\r\n- List item 1.\r\n- List item 2.\r\n", markdown);
         }
 
         [Fact]

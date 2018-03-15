@@ -73,6 +73,29 @@ And this is my last line.
         }
 
         [Fact]
+        public void UseCorrectLineEndingsInLists()
+        {
+            string maml = MarkdownStringToMamlString(@"
+# Get-Foo
+## Synopsis
+This is Synopsis, but it doesn't matter in this test
+
+## DESCRIPTION
+This line.
+
+This is a multline
+description with a list.
+
+- Item 1
+- Item 2
+- Item 3
+");
+
+            string[] description = GetXmlContent(maml, "/msh:helpItems/command:command/maml:description/maml:para");
+            Assert.Equal(9, description.Length);
+        }
+
+        [Fact]
         public void PreserveMarkdownWhenUpdatingMarkdownHelp()
         {
             var expected = @"# Update-MarkdownHelp

@@ -1,11 +1,6 @@
 ﻿using Markdown.MAML.Model.MAML;
 using Markdown.MAML.Model.Markdown;
 using Markdown.MAML.Transformer;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace Markdown.MAML.Test.Transformer
