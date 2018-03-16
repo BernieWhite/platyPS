@@ -92,7 +92,7 @@ description with a list.
 ");
 
             string[] description = GetXmlContent(maml, "/msh:helpItems/command:command/maml:description/maml:para");
-            Assert.Equal(9, description.Length);
+            Assert.Equal(5, description.Length);
         }
 
         [Fact]
