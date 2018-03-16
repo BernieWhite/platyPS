@@ -159,6 +159,24 @@ This is a :""text"" with doublequotes
         }
 
         [Fact]
+        public void ListInlineCharactersDontAffectLineEndings()
+        {
+            var markdown = @"
+This is text * with a asterix.
+This is text - with dash.
+";
+            var tokens = MarkdownStringToTokens(markdown);
+
+            Assert.Equal(2, tokens.Length);
+            Assert.Equal(MarkdownTokenType.Text, tokens[0].Type);
+            Assert.Equal(MarkdownTokenFlag.LineEnding, tokens[0].Flag);
+            Assert.Equal("This is text * with a asterix.", tokens[0].Text);
+            Assert.Equal(MarkdownTokenType.Text, tokens[1].Type);
+            Assert.Equal(MarkdownTokenFlag.LineEnding, tokens[1].Flag);
+            Assert.Equal("This is text - with dash.", tokens[1].Text);
+        }
+
+        [Fact]
         public void TextSpansCanContainBrackets()
         {
             var markdown = @"
