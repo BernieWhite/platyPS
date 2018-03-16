@@ -101,14 +101,15 @@ namespace Markdown.MAML.Renderer
                 yield break;
             }
 
-            var lines = text.Split(new string[] { NewLine }, StringSplitOptions.None);
+            var lines = text.Split(new string[] { NewLine }, StringSplitOptions.RemoveEmptyEntries);
 
             for (var i = 0; i < lines.Length; i++)
             {
-                if (i > 0 && HasListPrefix(lines[i - 1]) && HasListPrefix(lines[i]))
-                {
-                    yield return new XElement(mamlPara, string.Empty);
-                }
+                //!string.IsNullOrEmpty(lines[i - 1]) &&
+                //if (i > 0 && HasListPrefix(lines[i - 1]) && HasListPrefix(lines[i]))
+                //{
+                //    yield return new XElement(mamlPara, string.Empty);
+                //}
 
                 yield return new XElement(mamlPara, lines[i]);
             }
