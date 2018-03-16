@@ -249,6 +249,8 @@ namespace Markdown.MAML.Parser
             // Set the default style
             var textStyle = MarkdownTokenFlag.None;
 
+            var startOfLine = _Stream.IsStartOfLine;
+
             // Get the text
             var text = (_PreserveFormatting) ? _Stream.CaptureUntil(LineEndingCharacters, ignoreEscaping: true) : UnwrapStyleMarkers(_Stream, out textStyle);
 
@@ -260,12 +262,7 @@ namespace Markdown.MAML.Parser
                 return;
             }
 
-            //if (_PreserveFormatting && ending.IsEnding())
-            //{
-            //    ending |= MarkdownTokenFlag.Preserve;
-            //}
-
-            if (_Context != MarkdownReaderMode.List && IsList(text))
+            if (_Context != MarkdownReaderMode.List && startOfLine && IsList(text))
             {
                 _Context = MarkdownReaderMode.List;
 
@@ -275,6 +272,7 @@ namespace Markdown.MAML.Parser
                 }
             }
 
+            // Override line ending if the line was a list item so that the line ending is preserved
             if (_Context == MarkdownReaderMode.List)
             {
                 if (ending.IsEnding())
@@ -282,14 +280,6 @@ namespace Markdown.MAML.Parser
                     ending |= MarkdownTokenFlag.Preserve;
                 }
             }
-
-            // Override line ending if the line was a list item so that the line ending is preserved
-            //var preserveFormatting = _Context == MarkdownReaderMode.List;
-
-            //if (_PreserveFormatting && ending.IsEnding())
-            //{
-            //    ending |= MarkdownTokenFlag.Preserve;
-            //}
 
             // Add the text to the output stream
             _Output.Text(text, flag: textStyle | ending);
