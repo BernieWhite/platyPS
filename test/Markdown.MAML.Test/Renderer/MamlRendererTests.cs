@@ -173,7 +173,9 @@ namespace Markdown.MAML.Test.Renderer
 
 - Item 1
 - Item 2
-- Item 3",
+- Item 3
+
+And this is a following comment.",
                 Globbing = true
             };
 
@@ -184,14 +186,13 @@ namespace Markdown.MAML.Test.Renderer
             string[] parameter1Xml = EndToEndTests.GetXmlContent(maml, "/msh:helpItems/command:command/command:parameters/command:parameter[maml:name='Name']/maml:Description/maml:para");
 
             Assert.NotNull(parameter1Xml);
-            Assert.Equal(7, parameter1Xml.Length);
+            Assert.Equal(6, parameter1Xml.Length);
             Assert.Equal(@"This is a parameter with a list:
-
 - Item 1
-
 - Item 2
+- Item 3
 
-- Item 3", string.Join("\r\n", parameter1Xml));
+And this is a following comment.", string.Join("\r\n", parameter1Xml));
         }
 
         [Fact]
