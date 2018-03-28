@@ -27,7 +27,7 @@ namespace Markdown.MAML.Test.Renderer
                 VariableLength = true,
                 Globbing = true,
                 PipelineInput = "True (ByValue)",
-                Position = "1",
+                Position = 1,
                 Aliases = new string []{"GF","Foos","Do"},
             }
             );
@@ -40,7 +40,7 @@ namespace Markdown.MAML.Test.Renderer
                 VariableLength = true,
                 Globbing = true,
                 PipelineInput = "True (ByValue)",
-                Position = "2",
+                Position = 2,
                 Aliases = new string[] {  },
             }
             );
@@ -120,15 +120,13 @@ namespace Markdown.MAML.Test.Renderer
             var param1 = new MamlParameter()
             {
                 Type = "String",
-                Name = "Param1",
-                Position = ""
+                Name = "Param1"
             };
 
             var param2 = new MamlParameter()
             {
                 Type = "System.Int32",
-                Name = "Param2",
-                Position = "Named"
+                Name = "Param2"
             };
 
             command.Parameters.Add(param1);
@@ -287,9 +285,7 @@ And this is a following comment.", string.Join("\r\n", parameter1Xml));
 
         private string MamlToXmlString(MamlCommand command)
         {
-            return PipelineBuilder.ToMamlXml(config =>
-            {
-            }).Process(new[] { command });
+            return PipelineBuilder.ToMamlXml().Build().Process(new[] { command });
         }
     }
 

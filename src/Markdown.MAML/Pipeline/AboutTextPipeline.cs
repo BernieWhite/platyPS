@@ -1,8 +1,7 @@
-﻿using Markdown.MAML.Model.About;
+﻿using Markdown.MAML.Configuration;
+using Markdown.MAML.Model.About;
 using Markdown.MAML.Parser;
 using Markdown.MAML.Renderer;
-using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text;
 

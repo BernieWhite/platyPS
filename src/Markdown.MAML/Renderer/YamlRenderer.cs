@@ -7,7 +7,7 @@ using YamlDotNet.Serialization.NamingConventions;
 
 namespace Markdown.MAML.Renderer
 {
-    public class YamlRenderer
+    public sealed class YamlRenderer
     {
         public static string MamlModelToString(MamlCommand mamlCommand)
         {
@@ -77,8 +77,8 @@ namespace Markdown.MAML.Renderer
                 Description = mamlParameter.Description,
                 Aliases = mamlParameter.Aliases.ToList(),
                 Type = mamlParameter.Type,
-                ParameterValueGroup = mamlParameter.ParameterValueGroup,
-                Position = mamlParameter.Position,
+                ParameterValueGroup = mamlParameter.ParameterValueGroup?.ToList(),
+                Position = mamlParameter.Position?.ToString() ?? "Named",
                 PipelineInput = mamlParameter.PipelineInput,
                 DefaultValue = mamlParameter.DefaultValue
             };

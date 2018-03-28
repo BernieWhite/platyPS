@@ -1,7 +1,7 @@
-﻿using System;
+﻿using Markdown.MAML.Model.Markdown;
+using System;
 using System.Collections;
 using System.Collections.Generic;
-using Markdown.MAML.Model.Markdown;
 
 namespace Markdown.MAML.Model.MAML
 {
@@ -37,8 +37,6 @@ namespace Markdown.MAML.Model.MAML
 
         public bool SupportCommonParameters { get; set; }
 
-        public string DefaultParameterSet { get; set; }
-
         public string ModuleName
         {
             get { return GetMetadata(MODULE_PAGE_MODULE_NAME); }
@@ -66,7 +64,7 @@ namespace Markdown.MAML.Model.MAML
             get { return _syntax; }
         }
 
-        public Dictionary<string, string> Metadata { get; set; }
+        public Dictionary<string, string> Metadata { get; }
 
         private List<MamlParameter> _parameters = new List<MamlParameter>();
 
@@ -95,14 +93,22 @@ namespace Markdown.MAML.Model.MAML
                 return;
             }
 
-            if (Metadata == null)
-            {
-                Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            }
-
             foreach (DictionaryEntry pair in hashtable)
             {
                 Metadata[pair.Key.ToString()] = pair.Value == null ? string.Empty : pair.Value.ToString();
+            }
+        }
+
+        public void SetMetadata(Dictionary<string, string> dictionary)
+        {
+            if (dictionary == null || dictionary.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var pair in dictionary)
+            {
+                Metadata[pair.Key.ToString()] = pair.Value == null ? string.Empty : pair.Value;
             }
         }
 
@@ -113,22 +119,12 @@ namespace Markdown.MAML.Model.MAML
                 return;
             }
 
-            if (Metadata == null)
-            {
-                Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            }
-
             Metadata[key] = value;
         }
 
         public string GetMetadata(string key)
         {
-            if (Metadata == null || !Metadata.ContainsKey(key))
-            {
-                return null;
-            }
-
-            return Metadata[key];
+            return Metadata.ContainsKey(key) ? Metadata[key] : null;
         }
 
         public static MamlCommand Create()

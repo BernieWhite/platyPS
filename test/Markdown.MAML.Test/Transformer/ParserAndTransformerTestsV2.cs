@@ -55,8 +55,7 @@ This is Synopsis
             Assert.Equal("Get-Foo", mamlCommand.Name);
             Assert.Equal("This is Synopsis", mamlCommand.Synopsis.Text);
             Assert.NotNull(mamlCommand.Metadata);
-            Assert.True(mamlCommand.Metadata.ContainsKey("schema"));
-            Assert.Equal("2.0.0", mamlCommand.Metadata["schema"]);
+            Assert.Equal("2.0.0", mamlCommand.GetMetadata("schema"));
         }
 
         /// <summary>
@@ -780,7 +779,7 @@ Accepted values: a, b, c
             var fooParam = mamlCommand.Syntax[0].Parameters[0];
             Assert.Equal("foo", fooParam.Name);
             Assert.Equal("string", fooParam.Type);
-            Assert.Equal(3, fooParam.ParameterValueGroup.Count);
+            Assert.Equal(3, fooParam.ParameterValueGroup.Length);
             Assert.Equal("a", fooParam.ParameterValueGroup[0]);
             Assert.Equal("b", fooParam.ParameterValueGroup[1]);
             Assert.Equal("c", fooParam.ParameterValueGroup[2]);
@@ -1168,18 +1167,18 @@ This description block test formatting preservance.
 
         private MamlCommand StringToMamlCommand(string markdown, string[] tags = null)
         {
-            return PipelineBuilder.ToMamlCommand(config =>
+            return PipelineBuilder.ToMamlCommand().Configure(config =>
             {
                 config.UseApplicableTag(tags);
-            }).Process(markdown);
+            }).Build().Process(markdown, path: null);
         }
 
         private MamlCommand ParseStringPreserveFormat(string markdown)
         {
-            return PipelineBuilder.ToMamlCommand(config =>
+            return PipelineBuilder.ToMamlCommand().Configure(config =>
             {
                 config.UsePreserveFormatting();
-            }).Process(markdown);
+            }).Build().Process(markdown, path: null);
         }
 
         private static string GetParameterText(string paramName, string paramAttributes)

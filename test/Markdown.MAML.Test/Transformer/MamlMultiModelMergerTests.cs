@@ -135,7 +135,7 @@ Third Command
                 VariableLength = true,
                 Globbing = true,
                 PipelineInput = "True (ByValue)",
-                Position = "1",
+                Position = 1,
                 DefaultValue = "trololo",
                 Aliases = new string[] { "GF", "Foos", "Do" },
             };
@@ -192,7 +192,7 @@ Third Command
                 VariableLength = true,
                 Globbing = true,
                 PipelineInput = "True (ByValue)",
-                Position = "1",
+                Position = 1,
                 DefaultValue = "trololo",
                 Aliases = new string[] { "GF", "Foos", "Do" },
             };
@@ -256,7 +256,7 @@ Third Command
                 VariableLength = true,
                 Globbing = true,
                 PipelineInput = "True (ByValue)",
-                Position = "1",
+                Position = 1,
                 DefaultValue = "trololo",
                 Aliases = new string[] { "GF", "Foos", "Do" },
             };
@@ -270,7 +270,7 @@ Third Command
                 VariableLength = true,
                 Globbing = true,
                 PipelineInput = "True (ByValue)",
-                Position = "2",
+                Position = 2,
                 DefaultValue = "dodododo",
                 Aliases = new string[] { "Pa1", "RemovedParam", "Gone" },
             };
@@ -330,7 +330,7 @@ Third Command
 
             // next render it as markdown and make sure that we don't crash
 
-            var markdown = PipelineBuilder.ToMarkdown().Process(result);
+            var markdown = PipelineBuilder.ToMarkdown().Build().Process(result);
             //var renderer = new MarkdownV2Renderer(MAML.Parser.ParserMode.FormattingPreserve);
             //string markdown = renderer.MamlModelToString(result, true);
 
@@ -358,7 +358,7 @@ Third Command
                 VariableLength = true,
                 Globbing = true,
                 PipelineInput = "True (ByValue)",
-                Position = "1",
+                Position = 1,
                 DefaultValue = "trololo",
                 Aliases = new string[] { "GF", "Foos", "Do" },
             };
@@ -391,7 +391,7 @@ Third Command
                 VariableLength = true,
                 Globbing = true,
                 PipelineInput = "True (ByValue)",
-                Position = "1",
+                Position = 1,
                 DefaultValue = "trololo",
                 Aliases = new string[] { "GF", "Foos", "Do" },
             };

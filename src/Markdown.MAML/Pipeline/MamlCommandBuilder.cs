@@ -1,26 +1,26 @@
-﻿using Markdown.MAML.Model.MAML;
-using System;
+﻿using Markdown.MAML.Configuration;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Markdown.MAML.Pipeline
 {
     public sealed class MamlCommandBuilder
     {
-        private VisitMamlCommand _MamlAction;
+        private VisitMamlCommand _ReadMamlCommandHook;
+        private VisitMarkdown _ReadMarkdownHook;
         private bool _PreserveFormatting;
         private List<string> _Tags;
 
         internal MamlCommandBuilder()
         {
-            _MamlAction = MamlCommandActions.EmptyMamlCommandDelegate;
+            _ReadMamlCommandHook = PipelineHook.EmptyMamlCommandDelegate;
+            _ReadMarkdownHook = PipelineHook.EmptyMarkdownDelegate;
             _PreserveFormatting = false;
             _Tags = new List<string>();
         }
 
         public IMamlCommandPipeline Build()
         {
-            return new MamlCommandPipeline(_MamlAction, _Tags.ToArray(), _PreserveFormatting);
+            return new MamlCommandPipeline(_ReadMamlCommandHook, _ReadMarkdownHook, _Tags.ToArray(), _PreserveFormatting);
         }
 
         public void UseApplicableTag(params string[] tags)
@@ -40,59 +40,69 @@ namespace Markdown.MAML.Pipeline
 
         public void UseSchema()
         {
-            AddMamlAction(CheckSchema);
+            AddMamlAction(MamlCommandActions.CheckSchema);
         }
 
         public void SetOnlineVersionUrlLink()
         {
-            AddMamlAction(UpdateOnlineVersionLink);
+            AddMamlAction(MamlCommandActions.UpdateOnlineVersionLink);
         }
 
         public void AddMamlAction(VisitMamlCommandAction action)
         {
             // Nest the previous write action in the new supplied action
             // Execution chain will be: action -> previous -> previous..n
-            var previous = _MamlAction;
-            _MamlAction = node => action(node, previous);
+            var previous = _ReadMamlCommandHook;
+            _ReadMamlCommandHook = node => action(node, previous);
         }
 
-        private const string ONLINE_VERSION_YAML_HEADER = "online version";
-        private const string MAML_ONLINE_LINK_DEFAULT_MONIKER = "Online Version:";
-
-        private bool UpdateOnlineVersionLink(MamlCommand node, VisitMamlCommand next)
+        public void AddMarkdownAction(VisitMarkdownAction action)
         {
-            if (node.Metadata.ContainsKey(ONLINE_VERSION_YAML_HEADER))
+            // Nest the previous write action in the new supplied action
+            // Execution chain will be: action -> previous -> previous..n
+            var previous = _ReadMarkdownHook;
+            _ReadMarkdownHook = (markdown, path) => action(markdown, path, previous);
+        }
+
+        public MamlCommandBuilder Configure(MamlCommandPipelineConfiguration config)
+        {
+            config?.Invoke(this);
+
+            return this;
+        }
+
+        public MamlCommandBuilder Configure(MarkdownHelpOption option)
+        {
+            if (option == null)
             {
-                var onlineUrl = node.Metadata[ONLINE_VERSION_YAML_HEADER];
+                return this;
+            }
 
-                if (!string.IsNullOrEmpty(onlineUrl))
+            if (option.Pipeline.ReadCommand.Count > 0)
+            {
+                foreach (var action in option.Pipeline.ReadCommand)
                 {
-                    var first = node.Links.FirstOrDefault();
-
-                    if (first == null || first.LinkUri != onlineUrl)
+                    AddMamlAction((command, next) =>
                     {
-                        var link = new MamlLink
-                        {
-                            LinkName = MAML_ONLINE_LINK_DEFAULT_MONIKER,
-                            LinkUri = onlineUrl
-                        };
+                        action(command);
 
-                        node.Links.Insert(0, link);
-                    }
+                        return next(command);
+                    });
                 }
             }
 
-            return next(node);
-        }
-
-        private bool CheckSchema(MamlCommand node, VisitMamlCommand next)
-        {
-            if (!node.Metadata.ContainsKey("schema") || node.Metadata["schema"] != "2.0.0")
+            if (option.Pipeline.ReadMarkdown.Count > 0)
             {
-                throw new Exception("PlatyPS schema version 1.0.0 is deprecated and not supported anymore. Please install platyPS 0.7.6 and migrate to the supported version.");
+                foreach (var action in option.Pipeline.ReadMarkdown)
+                {
+                    AddMarkdownAction((markdown, path, next) =>
+                    {
+                        return next(action(markdown, path), path);
+                    });
+                }
             }
 
-            return next(node);
+            return this;
         }
     }
 }

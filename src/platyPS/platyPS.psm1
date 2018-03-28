@@ -37,6 +37,13 @@ $script:MODULE_PAGE_ADDITIONAL_LOCALE = "Additional Locale"
 
 $script:MAML_ONLINE_LINK_DEFAULT_MONIKER = 'Online Version:'
 
+[Markdown.MAML.Configuration.MarkdownHelpOption]::GetWorkingPath = {
+
+    $Null = validateWorkingProvider;
+
+    return Get-Location;
+}
+
 function New-MarkdownHelp
 {
     [CmdletBinding()]
@@ -106,8 +113,10 @@ function New-MarkdownHelp
 
         [Parameter(ParameterSetName="FromMaml")]
         [string]
-        $ModuleGuid = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+        $ModuleGuid = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
 
+        [Parameter(Mandatory = $False)]
+        [Markdown.MAML.Configuration.MarkdownHelpOption]$Option
     )
 
     begin {
@@ -116,9 +125,33 @@ function New-MarkdownHelp
 
         validateWorkingProvider
         $Null = New-Item -Type Directory $OutputFolder -ErrorAction SilentlyContinue;
+
+        if ($Null -eq $Option) {
+            $Option = New-MarkdownHelpOption;
+        }
+        else {
+            $Option = $Option.Clone();
+        }
     }
 
     process {
+
+        $pipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMarkdown($Option).Configure({
+            param ($config)
+
+            $config.UseFirstExample();
+
+            if ($NoMetadata) {
+                $config.UseNoMetadata();
+            }
+
+            if ($AlphabeticParamsOrder) {
+                $config.UseSortParamsAlphabetic();
+            }
+
+            $config.SetOnlineVersionUrl();
+        }).Build();
+
         function processMamlObjectToFile {
             param(
                 [Parameter(ValueFromPipeline=$true)]
@@ -154,13 +187,16 @@ function New-MarkdownHelp
 
                     $newMetadata = ($Metadata + @{
                         $script:EXTERNAL_HELP_FILE_YAML_HEADER = $helpFileName
-                        # $script:ONLINE_VERSION_YAML_HEADER = $OnlineVersionUrl
-                        # $script:MODULE_PAGE_MODULE_NAME = $mamlObject.ModuleName
                     })
                 }
 
-                $md = ConvertMamlModelToMarkdown2 -mamlCommand $mamlObject -metadata $newMetadata -NoMetadata:$NoMetadata -AlphabeticParamsOrder:$AlphabeticParamsOrder
-
+                if ($Null -ne $newMetadata)
+                {
+                    $mamlObject.SetMetadata($newMetadata);
+                }
+        
+                $md = $pipeline.Process($mamlObject);
+                
                 MySetContent -path (Join-Path $OutputFolder "$commandName.md") -value $md -Encoding $Encoding -Force:$Force
             }
         }
@@ -298,7 +334,10 @@ function Update-MarkdownHelp
         [switch]$UseFullTypeName,
         [switch]$UpdateInputOutput,
 
-        [System.Management.Automation.Runspaces.PSSession]$Session
+        [System.Management.Automation.Runspaces.PSSession]$Session,
+
+        [Parameter(Mandatory = $False)]
+        [Markdown.MAML.Configuration.MarkdownHelpOption]$Option
     )
 
     begin
@@ -306,6 +345,18 @@ function Update-MarkdownHelp
         validateWorkingProvider
         $infoCallback = GetInfoCallback $LogPath -Append:$LogAppend
         $targetPaths = New-Object -TypeName 'System.Collections.Generic.List[string]';
+
+        if ($Null -eq $Option) {
+            $Option = New-MarkdownHelpOption;
+        }
+        else {
+            $Option = $Option.Clone();
+        }
+
+        # Sort by parameter name
+        if ($PSBoundParameters.ContainsKey('AlphabeticParamsOrder') -and $AlphabeticParamsOrder) {
+            $Option.Markdown.ParameterSort = [Markdown.MAML.Configuration.ParameterSort]::Name;
+        }
     }
 
     process
@@ -343,51 +394,53 @@ function Update-MarkdownHelp
             return
         }
 
-        # Build a pipeline for processing markdown
-        $pipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMamlCommand({
+        # Build pipeline for reading markdown
+        $readPipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMamlCommand($Option).Configure({
             param($config)
-            $config.SetOnlineVersionUrlLink();
-            $config.UseApplicableTag($ApplicableTag);
-            $config.UsePreserveFormatting();
-    
-            $config.UseSchema();
-        });
 
-        #$builder.AddProgress();
+            $config.UsePreserveFormatting();
+            $config.UseSchema();
+        }).Build();
+
+        # Build a pipeline for writing markdown
+        $writePipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMarkdown($Option).Configure({
+            param ($config)
+
+            $config.SetOnlineVersionUrl();
+            $config.UsePreserveFormatting();
+        }).Build();
 
         foreach ($file in $markdownFiles) {
 
             # Process the command markdown file
-            $oldModels = $pipeline.Process($file, $Encoding);
+            $oldModel = $readPipeline.Process($file, $Encoding);
 
-            foreach ($oldModel in $oldModels) {
-
-                # Discover the PS command that matches the name of the stored model
-                $name = $oldModel.Name;
-                $command = Get-Command -Name $name;
-
-                if (!$command) {
-                    log -warning  "command $name not found in the session, skipping upgrade for $filePath";
-                    return
-                }
-
-                $reflectionModel = GetMamlObject -Cmdlet $name -UseFullTypeName:$UseFullTypeName
-
-                $merger = New-Object Markdown.MAML.Transformer.MamlModelMerger -ArgumentList $infoCallback
-                $newModel = $merger.Merge($reflectionModel, $oldModel);
-
-                # Update command help file
-                $newModel.SetMetadata("external help file", (GetHelpFileName $command));
-                $newModel.SetMetadata($script:MODULE_PAGE_MODULE_NAME, $reflectionModel.ModuleName);
-
-                if ($AlphabeticParamsOrder)
-                {
-                    SortParamsAlphabetically $newModel
-                }
-
-                $md = ConvertMamlModelToMarkdown -mamlCommand $newModel -metadata $metadata -PreserveFormatting
-                MySetContent -path $file -value $md -Encoding $Encoding -Force # yield
+            if (!$command) {
+                log -warning  "command $name not found in the session, skipping upgrade for $filePath";
+                return
             }
+
+            # Discover the PS command that matches the name of the stored model
+            $name = $oldModel.Name;
+            $command = Get-Command -Name $name;
+
+            if (!$command) {
+                log -warning  "command $name not found in the session, skipping upgrade for $file";
+                return
+            }
+            
+            $reflectionModel = GetMamlObject -Cmdlet $name -UseFullTypeName:$UseFullTypeName;
+
+            $merger = New-Object Markdown.MAML.Transformer.MamlModelMerger -ArgumentList $infoCallback
+            $newModel = $merger.Merge($reflectionModel, $oldModel);
+
+            # Update command help file
+            $newModel.SetMetadata("external help file", (GetHelpFileName $command));
+            $newModel.SetMetadata($script:MODULE_PAGE_MODULE_NAME, $reflectionModel.ModuleName);
+
+            $md = $writePipeline.Process($newModel);
+            
+            MySetContent -path $file -value $md -Encoding $Encoding -Force # yield
         }
     }
 }
@@ -715,7 +768,10 @@ function New-ExternalHelp
 
         [switch]$Force,
 
-        [switch]$ShowProgress
+        [switch]$ShowProgress,
+
+        [Parameter(Mandatory = $False)]
+        [Markdown.MAML.Configuration.MarkdownHelpOption]$Option
     )
 
     begin
@@ -724,6 +780,13 @@ function New-ExternalHelp
         $perfTrace.Start();
 
         validateWorkingProvider
+
+        if ($Null -eq $Option) {
+            $Option = New-MarkdownHelpOption;
+        }
+        else {
+            $Option = $Option.Clone();
+        }
 
         $MarkdownFiles = @()
         $AboutFiles = @()
@@ -816,11 +879,11 @@ function New-ExternalHelp
             }
 
             # Create a pipeline to render MAML XML
-            $mamlPipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMamlXml({
+            $mamlPipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMamlXml($Option).Configure({
                 param($config)
                 $config.UseApplicableTag($ApplicableTag);
                 $config.UseSchema();
-            });
+            }).Build();
 
             # Generate XML content a group at a time
             foreach ($group in $groups) {
@@ -1014,7 +1077,6 @@ Microsoft.PowerShell.Core\Export-ModuleMember -Function @()
     }
 }
 
-
 function New-ExternalHelpCab
 {
     [Cmdletbinding()]
@@ -1163,6 +1225,71 @@ function New-ExternalHelpCab
                 }
             }
         }
+    }
+}
+
+function New-MarkdownHelpOption {
+
+    [CmdletBinding()]
+    [OutputType([Markdown.MAML.Configuration.MarkdownHelpOption])]
+    param (
+        [Parameter(Mandatory = $False)]
+        [Markdown.MAML.Configuration.MarkdownHelpOption]$Option,
+
+        [Parameter(Mandatory = $False)]
+        [String]$Path = '.\.platyps.yml',
+
+        [Parameter(Mandatory = $False)]
+        [Markdown.MAML.Configuration.VisitMarkdown[]]$ReadMarkdown,
+
+        [Parameter(Mandatory = $False)]
+        [Markdown.MAML.Configuration.VisitMarkdown[]]$WriteMarkdown,
+
+        [Parameter(Mandatory = $False)]
+        [Markdown.MAML.Configuration.MamlCommandScriptHook[]]$ReadCommand,
+
+        [Parameter(Mandatory = $False)]
+        [Markdown.MAML.Configuration.MamlCommandScriptHook[]]$WriteCommand
+    )
+
+    process {
+
+        if ($PSBoundParameters.ContainsKey('Option')) {
+            $Option = $Option.Clone();
+        }
+        elseif ($PSBoundParameters.ContainsKey('Path')) {
+
+            if (!(Test-Path -Path $Path)) {
+                
+            }
+
+            $Path = Resolve-Path -Path $Path;
+
+            $Option = [Markdown.MAML.Configuration.MarkdownHelpOption]::FromFile($Path);
+        }
+        else {
+            Write-Verbose -Message "Attempting to read: $Path";
+
+            $Option = [Markdown.MAML.Configuration.MarkdownHelpOption]::FromFile($Path, $True);
+        }
+
+        if ($PSBoundParameters.ContainsKey('ReadMarkdown')) {
+            $Option.Pipeline.ReadMarkdown.AddRange($ReadMarkdown);
+        }
+
+        if ($PSBoundParameters.ContainsKey('WriteMarkdown')) {
+            $Option.Pipeline.WriteMarkdown.AddRange($WriteMarkdown);
+        }
+
+        if ($PSBoundParameters.ContainsKey('ReadCommand')) {
+            $Option.Pipeline.ReadCommand.AddRange($ReadCommand);
+        }
+
+        if ($PSBoundParameters.ContainsKey('WriteCommand')) {
+            $Option.Pipeline.WriteCommand.AddRange($WriteCommand);
+        }
+
+        return $Option;
     }
 }
 
@@ -1499,65 +1626,6 @@ function GetMarkdownFilesFromPath
     return $MarkdownFiles
 }
 
-function GetParserMode
-{
-    param(
-        [switch]$PreserveFormatting
-    )
-
-    if ($PreserveFormatting)
-    {
-        return [Markdown.MAML.Parser.ParserMode]::FormattingPreserve
-    }
-    else
-    {
-        return [Markdown.MAML.Parser.ParserMode]::Full
-    }
-}
-
-function GetMamlCommand {
-
-    [OutputType([Markdown.MAML.Model.MAML.MamlCommand])]
-    param (
-        [Parameter(Mandatory = $True)]
-        [string[]]$Path,
-
-        [Parameter(Mandatory = $True)]
-        [System.Text.Encoding]$Encoding,
-
-        [switch]$ForAnotherMarkdown,
-
-        [string[]]$ApplicableTag
-    )
-
-    process {
-        if ($ForAnotherMarkdown -and $ApplicableTag) {
-            throw '[ASSERT] Incorrect usage: cannot pass both -ForAnotherMarkdown and -ApplicableTag'
-        }
-    
-        $pipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMamlCommand({
-            param($config)
-            $config.SetOnlineVersionUrlLink();
-            $config.UseApplicableTag($ApplicableTag);
-    
-            if ($ForAnotherMarkdown) {
-                $config.UsePreserveFormatting();
-            }
-    
-            $config.UseSchema();
-        });
-        #$builder.AddProgress();
-    
-        foreach ($p in $Path)
-        {
-            $pipeline.AddFile($p, $Encoding);
-        }
-    
-        # Emit the command to the pipeline
-        $pipeline.Process();
-    }
-}
-
 function GetMamlModelImpl
 {
     [OutputType([Markdown.MAML.Model.MAML.MamlCommand])]
@@ -1574,7 +1642,7 @@ function GetMamlModelImpl
         throw '[ASSERT] Incorrect usage: cannot pass both -ForAnotherMarkdown and -ApplicableTag'
     }
 
-    $pipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMamlCommand({
+    $pipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMamlCommand().Configure({
         param($config)
         $config.SetOnlineVersionUrlLink();
         $config.UseApplicableTag($ApplicableTag);
@@ -1584,8 +1652,7 @@ function GetMamlModelImpl
         }
 
         $config.UseSchema();
-    });
-    #$builder.AddProgress();
+    }).Build();
 
     foreach ($file in $markdownFiles)
     {
@@ -1595,101 +1662,7 @@ function GetMamlModelImpl
 
 function NewMarkdownParser
 {
-    # $warningCallback = GetWarningCallback
-    # $progressCallback = {
-    #     param([int]$current, [int]$all) 
-    #     Write-Progress -Activity "Parsing markdown" -status "Progress:" -percentcomplete ($current/$all*100)
-    # }
-    # return new-object -TypeName 'Markdown.MAML.Parser.MarkdownParser' -ArgumentList ($progressCallback, $warningCallback)
-
     return [Markdown.MAML.Markdown]::GetParser();
-}
-
-function NewModelTransformer
-{
-    param(
-        [ValidateSet('1.0.0', '2.0.0')]
-        [string]$schema,
-        [string[]]$ApplicableTag
-    )
-
-    if ($schema -eq '1.0.0')
-    {
-        throw "PlatyPS schema version 1.0.0 is deprecated and not supported anymore. Please install platyPS 0.7.6 and migrate to the supported version."
-    }
-    elseif ($schema -eq '2.0.0')
-    {
-        $infoCallback = {
-            param([string]$message)
-            Write-Verbose $message
-        }
-        $warningCallback = GetWarningCallback
-        return new-object -TypeName 'Markdown.MAML.Transformer.ModelTransformerVersion2' -ArgumentList ($infoCallback, $warningCallback, $ApplicableTag)
-    }
-}
-
-function GetSchemaVersion
-{
-    param(
-        [string]$markdown
-    )
-
-    $metadata = Get-MarkdownMetadata -markdown $markdown
-    if ($metadata)
-    {
-        $schema = $metadata[$script:SCHEMA_VERSION_YAML_HEADER]
-        if (-not $schema)
-        {
-            # there is metadata, but schema version is not specified.
-            # assume 2.0.0
-            $schema = '2.0.0'
-        }
-    }
-    else
-    {
-        # if there is not metadata, then it's schema version 1.0.0
-        $schema = '1.0.0'
-    }
-
-    return $schema
-}
-
-function GetOnlineVersion
-{
-    param(
-        [string]$markdown
-    )
-
-    $metadata = Get-MarkdownMetadata -markdown $markdown
-    $onlineVersionUrl = $null
-    if ($metadata)
-    {
-        $onlineVersionUrl = $metadata[$script:ONLINE_VERSION_YAML_HEADER]
-    }
-
-    return $onlineVersionUrl
-}
-
-function SetOnlineVersionUrlLink
-{
-    param(
-        [Parameter(Mandatory=$true)]
-        [Markdown.MAML.Model.MAML.MamlCommand]$MamlCommandObject,
-
-        [string]$OnlineVersionUrl = $null
-    )
-
-    # Online Version URL
-    $currentFirstLink = $MamlCommandObject.Links | Select-Object -First 1
-
-    if ($OnlineVersionUrl -and ((-not $currentFirstLink) -or ($currentFirstLink.LinkUri -ne $OnlineVersionUrl))) {
-        $mamlLink = New-Object -TypeName Markdown.MAML.Model.MAML.MamlLink
-        $mamlLink.LinkName = $script:MAML_ONLINE_LINK_DEFAULT_MONIKER
-        $mamlLink.LinkUri = $OnlineVersionUrl
-
-        # Insert link at the beginning
-        $MamlCommandObject.Links.Insert(0, $mamlLink)
-    }
 }
 
 function MakeHelpInfoXml
@@ -2075,7 +2048,7 @@ function ConvertMamlModelToMarkdown
 
     begin
     {
-        $pipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMarkdown({
+        $pipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMarkdown().Configure({
             param ($config)
 
             if ($NoMetadata) {
@@ -2087,7 +2060,7 @@ function ConvertMamlModelToMarkdown
             }
 
             $config.SetOnlineVersionUrl();
-        });
+        }).Build();
     }
 
     process
@@ -2119,7 +2092,7 @@ function ConvertMamlModelToMarkdown2
 
     begin
     {
-        $pipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMarkdown({
+        $pipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMarkdown().Configure({
             param ($config)
 
             $config.UseFirstExample();
@@ -2137,7 +2110,7 @@ function ConvertMamlModelToMarkdown2
             }
 
             $config.SetOnlineVersionUrl();
-        });
+        }).Build();
     }
 
     process
@@ -2643,16 +2616,43 @@ function ConvertPsObjectsToMamlModel
 
     #endregion
 
-    $MamlCommandObject = [Markdown.MAML.Model.MAML.MamlCommand]::Create();
+    $builder = [Markdown.MAML.Model.MAML.MamlCommandBuilder]::Create($Command.Name, $Command.ModuleName);
+
+    #Get Synopsis
+    if (!$UsePlaceholderForSynopsis)
+    {
+        $builder.Synopsis($Help.Synopsis);
+    }
+
+    $builder.Description($Help.description.Text);
+    $builder.Notes($Help.alertSet.alert.Text);
+
+    #Add to relatedLinks
+    foreach($link in $Help.relatedLinks.navigationLink) {
+        $builder.Link($link.linkText, $link.uri);
+    }
+
+    #Add Examples
+    foreach($example in $Help.examples.example)
+    {
+        $builder.Example($example.title, $example.introduction, $example.code, $example.remarks.text);
+    }
+
+    # Get Inputs
+    # Reccomend adding a Parameter Name and Parameter Set Name to each input object.
+    foreach ($inputType in $Help.inputTypes.inputType) {
+        $builder.Input($inputType.type.name, $inputType.description.Text);
+    }
+    
+    # Get Outputs
+    # No Output Type description is provided from the command object.
+    foreach ($outputType in $Help.returnValues.returnValue) {
+        $builder.Output($outputType.type.name, $outputType.description.Text);
+    }
 
     #region Command Object Values Processing
 
-    $IsWorkflow = $Command.CommandType -eq 'Workflow'
-
-    #Get Name
-    $MamlCommandObject.Name = $Command.Name
-
-    $MamlCommandObject.ModuleName = $Command.ModuleName
+    $IsWorkflow = $Command.CommandType -eq 'Workflow';
 
     #region Data not provided by the command object
 
@@ -2677,7 +2677,8 @@ function ConvertPsObjectsToMamlModel
         $ParameterObject.DefaultValue = $HelpEntry.defaultValue | normalizeFirstLatter
         $ParameterObject.VariableLength = $HelpEntry.variableLength -eq 'True'
         $ParameterObject.Globbing = $HelpEntry.globbing -eq 'True'
-        $ParameterObject.Position = $HelpEntry.position | normalizeFirstLatter
+        # $ParameterObject.Position = $HelpEntry.position | normalizeFirstLatter
+        $ParameterObject.Position = $HelpEntry.position -as [byte]
         if ($HelpEntry.description)
         {
             if ($HelpEntry.description.text)
@@ -2700,10 +2701,7 @@ function ConvertPsObjectsToMamlModel
         if ($syntaxParam)
         {
             # otherwise we could potentialy get it from Reflection but not doing it for now
-            foreach ($parameterValue in $syntaxParam.parameterValueGroup.parameterValue)
-            {
-                $ParameterObject.parameterValueGroup.Add($parameterValue)
-            }
+            $ParameterObject.parameterValueGroup = [string[]]$syntaxParam.parameterValueGroup.parameterValue
         }
     }
 
@@ -2711,10 +2709,7 @@ function ConvertPsObjectsToMamlModel
     {
         foreach($ParameterSet in $Command.ParameterSets)
         {
-            $SyntaxObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlSyntax
-
-            $SyntaxObject.ParameterSetName = $ParameterSet.Name
-            $SyntaxObject.IsDefault = $ParameterSet.IsDefault
+            $builder.Syntax($ParameterSet.Name, $ParameterSet.IsDefault);
 
             foreach($Parameter in $ParameterSet.Parameters)
             {
@@ -2731,72 +2726,41 @@ function ConvertPsObjectsToMamlModel
                     }
                 }
 
-                $ParameterObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlParameter
-                $ParameterObject.Name = $Parameter.Name
-                $ParameterObject.Required = $Parameter.IsMandatory
-                $ParameterObject.PipelineInput = getPipelineValue $Parameter
-                # the ParameterType could be just a string in case of remoting
-                # or a TypeInfo object, in the regular case
-                if ($Session) {
-                    # in case of remoting we already pre-calcuated the Type string
-                    $ParameterObject.Type = $Parameter.ParameterTypeName
-                } else {
-                    $ParameterObject.Type = GetTypeString -TypeObject $Parameter.ParameterType
-                }
-                # ToString() works in both cases
-                $ParameterObject.FullType = $Parameter.ParameterType.ToString()
+                $ParameterType = $Parameter.ParameterType;
+                
+                # Add a parameter
+                $ParameterObject = $builder.Parameter(
+                    $ParameterSet.Name,
 
-                $ParameterObject.ValueRequired = -not ($Parameter.Type -eq "SwitchParameter") # thisDefinition is a heuristic
+                    # Name
+                    $Parameter.Name,
 
-                foreach($Alias in $Parameter.Aliases)
-                {
-                    $ParameterObject.Aliases += $Alias
-                }
+                    # Description
+                    $Parameter.HelpMessage,
 
-                $ParameterObject.Description = if ([String]::IsNullOrEmpty($Parameter.HelpMessage))
-                {
-                    # additional new-lines are needed for Update-MarkdownHelp scenario.
-                    switch ($Parameter.Name)
-                    {
-                        # we have well-known parameters and can generate a reasonable description for them
-                        # https://github.com/PowerShell/platyPS/issues/211
-                        'Confirm' { "Prompts you for confirmation before running the cmdlet.`r`n`r`n" }
-                        'WhatIf' { "Shows what would happen if the cmdlet runs. The cmdlet is not run.`r`n`r`n" }
-                        'IncludeTotalCount' { "Reports the number of objects in the data set (an integer) followed by the objects. If the cmdlet cannot determine the total count, it returns 'Unknown total count'.`r`n`r`n" }
-                        'Skip' { "Ignores the first 'n' objects and then gets the remaining objects.`r`n`r`n" }
-                        'First' { "Gets only the first 'n' objects.`r`n`r`n" }
-                        default { "{{Fill $($Parameter.Name) Description}}`r`n`r`n" }
-                    }
-                }
-                else
-                {
-                    $Parameter.HelpMessage
-                }
+                    # Required
+                    $Parameter.IsMandatory,
+
+                    # Type
+                    (getTypeString -typeObject $ParameterType),
+
+                    # Aliases
+                    $Parameter.Aliases,
+
+                    # Pipeline input
+                    (getPipelineValue $Parameter),
+
+                    # FullType
+                    $ParameterType.ToString()
+                );
 
                 FillUpParameterFromHelp $ParameterObject
-
-                $SyntaxObject.Parameters.Add($ParameterObject)
             }
-
-            $MamlCommandObject.Syntax.Add($SyntaxObject)
         }
     }
 
     function FillUpSyntaxFromHelp
     {
-        function GuessTheType
-        {
-            param([string]$type)
-
-            if (-not $type)
-            {
-                # weired, but that's how it works
-                return 'SwitchParameter'
-            }
-
-            return $type
-        }
-
         $ParamSetCount = 0
         foreach($ParameterSet in $Help.syntax.syntaxItem)
         {
@@ -2807,27 +2771,33 @@ function ConvertPsObjectsToMamlModel
 
             foreach($Parameter in $ParameterSet.Parameter)
             {
-                $ParameterObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlParameter
+                $ParameterObject = $builder.Parameter(
+                    $SyntaxObject.ParameterSetName,
 
-                $ParameterObject.Type = GuessTheType $Parameter.parameterValue
+                    # Name
+                    $Parameter.Name,
 
-                $ParameterObject.Name = $Parameter.Name
-                $ParameterObject.Required = $Parameter.required -eq 'true'
-                $ParameterObject.PipelineInput = $Parameter.pipelineInput | normalizeFirstLatter
+                    # Description
+                    '',
 
-                $ParameterObject.ValueRequired = -not ($ParameterObject.Type -eq "SwitchParameter") # thisDefinition is a heuristic
+                    # Required
+                    $Parameter.required -eq 'true',
 
-                if ($parameter.Aliases -ne 'None')
-                {
-                    $ParameterObject.Aliases = $parameter.Aliases
-                }
+                    # Type
+                    $Parameter.parameterValue,
 
+                    # Aliases
+                    $parameter.Aliases,
+
+                    # Pipeline input
+                    ($Parameter.pipelineInput | normalizeFirstLatter),
+
+                    # FullType
+                    ''
+                );
+                
                 FillUpParameterFromHelp $ParameterObject
-
-                $SyntaxObject.Parameters.Add($ParameterObject)
             }
-
-            $MamlCommandObject.Syntax.Add($SyntaxObject)
         }
     }
 
@@ -2840,144 +2810,8 @@ function ConvertPsObjectsToMamlModel
         FillUpSyntaxFromCommand
     }
 
-    #endregion
-    ##########
-
-    #####GET THE HELP-Object Content and add it to the MAML Object#####
-    #region Help-Object processing
-
-    #Get Synopsis
-    if (!$UsePlaceholderForSynopsis)
-    {
-        # Help object ALWAYS contains SYNOPSIS.
-        # If it's not available, it's auto-generated.
-        # We don't want to include auto-generated SYNOPSIS (see https://github.com/PowerShell/platyPS/issues/110)
-        $MamlCommandObject.Synopsis = New-Object -TypeName Markdown.MAML.Model.Markdown.SectionBody ("{{Fill in the Synopsis}}")
-    }
-    else
-    {
-        $MamlCommandObject.Synopsis = New-Object -TypeName Markdown.MAML.Model.Markdown.SectionBody (
-            # $Help.Synopsis only contains the first paragraph
-            # https://github.com/PowerShell/platyPS/issues/328
-            $Help.details.description |
-            DescriptionToPara |
-            AddLineBreaksForParagraphs
-        )
-    }
-
-    #Get Description
-    if($Help.description)
-    {
-        $MamlCommandObject.Description =  New-Object -TypeName Markdown.MAML.Model.Markdown.SectionBody (
-            $Help.description |
-            DescriptionToPara |
-            AddLineBreaksForParagraphs
-        )
-    }
-
-    #Add to Notes
-    #From the Help AlertSet data
-    if($help.alertSet)
-    {
-        $MamlCommandObject.Notes =  New-Object -TypeName Markdown.MAML.Model.Markdown.SectionBody (
-            $help.alertSet.alert |
-            DescriptionToPara |
-            AddLineBreaksForParagraphs
-        )
-    }
-
-    # Not provided by the command object. Using the Command Type to create a note declaring it's type.
-    # We can add this placeholder
-
-
-    #Add to relatedLinks
-    if($help.relatedLinks)
-    {
-       foreach($link in $Help.relatedLinks.navigationLink)
-        {
-            $mamlLink = New-Object -TypeName Markdown.MAML.Model.MAML.MamlLink
-            $mamlLink.LinkName = $link.linkText
-            $mamlLink.LinkUri = $link.uri
-            $MamlCommandObject.Links.Add($mamlLink)
-        }
-    }
-
-    #Add Examples
-    foreach($Example in $Help.examples.example)
-    {
-        $MamlExampleObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlExample
-
-        $MamlExampleObject.Introduction = $Example.introduction
-        $MamlExampleObject.Title = $Example.title
-        $MamlExampleObject.Code = @(
-            New-Object -TypeName Markdown.MAML.Model.MAML.MamlCodeBlock ($Example.code, '')
-        )
-
-        $RemarkText = $Example.remarks |
-            DescriptionToPara |
-            AddLineBreaksForParagraphs
-
-        $MamlExampleObject.Remarks = $RemarkText
-        $MamlCommandObject.Examples.Add($MamlExampleObject)
-    }
-
-    #Get Inputs
-    #Reccomend adding a Parameter Name and Parameter Set Name to each input object.
-    #region Inputs
-    $Inputs = @()
-
-    $Help.inputTypes.inputType | ForEach-Object {
-        $InputDescription = $_.description
-        $inputtypes = $_.type.name
-        if ($_.description -eq $null -and $_.type.name -ne $null)
-        {
-            $inputtypes = $_.type.name.split("`n", [System.StringSplitOptions]::RemoveEmptyEntries)
-        }
-
-        $inputtypes | ForEach-Object {
-            $InputObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlInputOutput
-            $InputObject.TypeName = $_
-            $InputObject.Description = $InputDescription |
-                DescriptionToPara |
-                AddLineBreaksForParagraphs
-            $Inputs += $InputObject
-        }
-    }
-
-    foreach($Input in $Inputs) {$MamlCommandObject.Inputs.Add($Input)}
-
-    #endregion
-
-    #Get Outputs
-    #No Output Type description is provided from the command object.
-    #region Outputs
-    $Outputs = @()
-
-    $Help.returnValues.returnValue | ForEach-Object {
-        $OuputDescription = $_.description
-        $Outputtypes = $_.type.name
-        if ($_.description -eq $null -and $_.type.name -ne $null)
-        {
-            $Outputtypes = $_.type.name.split("`n", [System.StringSplitOptions]::RemoveEmptyEntries)
-        }
-
-        $Outputtypes | ForEach-Object {
-            $OutputObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlInputOutput
-            $OutputObject.TypeName = $_
-            $OutputObject.Description = $OuputDescription |
-                DescriptionToPara |
-                AddLineBreaksForParagraphs
-            $Outputs += $OutputObject
-        }
-    }
-
-    foreach($Output in $Outputs) {$MamlCommandObject.Outputs.Add($Output)}
-    #endregion
-    ##########
-
-    #####Adding Parameters Section from Syntax block#####
-    #region Parameter Unique Selection from Parameter Sets
-    #This will only work when the Parameters member has a public set as well as a get.
+    # Get the built command object
+    $MamlCommandObject = $builder.Get();
 
     function Get-ParameterByName
     {
@@ -3061,9 +2895,6 @@ function ConvertPsObjectsToMamlModel
 
     # Handle CommonWorkflowParameters
     $MamlCommandObject.IsWorkflow = $IsWorkflow
-
-    #endregion
-    ##########
 
     return $MamlCommandObject
 }

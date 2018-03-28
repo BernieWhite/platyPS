@@ -153,13 +153,12 @@ namespace Markdown.MAML.Renderer
                     new XAttribute("variableLength", param.VariableLength),
                     new XAttribute("globbing", param.Globbing),
                     new XAttribute("pipelineInput", param.PipelineInput),
-                    new XAttribute("position", param.Position.ToLower()),
+                    new XAttribute("position", param.IsNamed() ? "named" : param.Position.Value.ToString()),
                     new XAttribute("aliases", param.Aliases.Any() ? string.Join(", ", param.Aliases) : "none"),
 
                     new XElement(mamlName, param.Name),
                     new XElement(mamlNS + "Description", GenerateParagraphs(param.Description)),
-                    isSyntax && param.ParameterValueGroup.Any() 
-                        ? new XElement(commandNS + "parameterValueGroup", param.ParameterValueGroup.Select(pvg => CreateParameterValueGroup(pvg))) 
+                    isSyntax && param.ParameterValueGroup?.Length > 0 ? new XElement(commandNS + "parameterValueGroup", param.ParameterValueGroup.Select(pvg => CreateParameterValueGroup(pvg))) 
                         : null,
                     // we don't add [switch] info to make it appear good
                     !isSyntax || !isSwitchParameter 

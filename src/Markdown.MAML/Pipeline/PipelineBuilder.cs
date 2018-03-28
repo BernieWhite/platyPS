@@ -1,4 +1,6 @@
-﻿namespace Markdown.MAML.Pipeline
+﻿using Markdown.MAML.Configuration;
+
+namespace Markdown.MAML.Pipeline
 {
     public delegate void MamlCommandPipelineConfiguration(MamlCommandBuilder builder);
 
@@ -8,31 +10,25 @@
 
     public static class PipelineBuilder
     {
-        public static IMamlCommandPipeline ToMamlCommand(MamlCommandPipelineConfiguration config = null)
+        public static MamlCommandBuilder ToMamlCommand(MarkdownHelpOption option = null)
         {
             var builder = new MamlCommandBuilder();
 
-            config?.Invoke(builder);
-
-            return builder.Build();
+            return builder.Configure(option);
         }
 
-        public static IMamlXmlPipeline ToMamlXml(MamlXmlPipelineConfiguration config = null)
+        public static MamlXmlBuilder ToMamlXml(MarkdownHelpOption option = null)
         {
             var builder = new MamlXmlBuilder();
 
-            config?.Invoke(builder);
-
-            return builder.Build();
+            return builder.Configure(option);
         }
 
-        public static IMarkdownPipeline ToMarkdown(MarkdownPipelineConfiguration config = null)
+        public static MarkdownBuilder ToMarkdown(MarkdownHelpOption option = null)
         {
             var builder = new MarkdownBuilder();
 
-            config?.Invoke(builder);
-
-            return builder.Build();
+            return builder.Configure(option);
         }
 
         public static IAboutTopicPipeline ToAboutTopic()

@@ -1,7 +1,5 @@
-﻿using System.Collections.Generic;
-using Markdown.MAML.Model.Markdown;
+﻿using Markdown.MAML.Model.Markdown;
 using System;
-using System.Linq;
 using System.Diagnostics;
 
 namespace Markdown.MAML.Model.MAML
@@ -37,29 +35,31 @@ namespace Markdown.MAML.Model.MAML
 
         public string PipelineInput { get; set; }
 
-        public string Position { get; set; }
+        /// <summary>
+        /// The positional order of the parameter. When this value is null the parameter is Named.
+        /// </summary>
+        public byte? Position { get; set; }
 
         public string[] Aliases { get; set; }
 
         public string[] Applicable { get; set; }
 
-        public bool ValueRequired { get; set; }
+        public bool ValueRequired
+        {
+            get
+            {
+                return !(StringComparer.OrdinalIgnoreCase.Equals(Type, "SwitchParameter") || StringComparer.OrdinalIgnoreCase.Equals(Type, "switch"));
+            }
+        }
 
         public bool ValueVariableLength { get; set; }
 
         /// <summary>
-        /// This string is used only in schema version 1.0.0 internal processing
+        /// Corresponds to "Accepted values"
         /// </summary>
-        internal string AttributesMetadata { get; set; }
-
-        public List<string> ParameterValueGroup
-        {
-            get { return _parameterValueGroup; }
-        }
+        public string[] ParameterValueGroup { get; set; }
 
         public string[] ParameterSet { get; set; }
-
-        private readonly List<string> _parameterValueGroup = new List<string>();
 
         public MamlParameter()
         {
@@ -67,13 +67,13 @@ namespace Markdown.MAML.Model.MAML
             ValueVariableLength = false;
             Globbing = false;
             PipelineInput = "false";
-            Position = "Named";
-            Aliases = new string[] {};
+            Position = null;
+            Aliases = new string[0];
         }
 
         public MamlParameter Clone()
         {
-            return (MamlParameter)this.MemberwiseClone();
+            return (MamlParameter)MemberwiseClone();
         }
     }
 }

@@ -28,8 +28,6 @@ namespace Markdown.MAML.Parser
 
         private MarkdownStream _Stream;
 
-
-
         /// <summary>
         /// Line ending characters: \r, \n
         /// </summary>
@@ -300,7 +298,7 @@ namespace Markdown.MAML.Parser
             var styleCount = styleChar == Asterix || styleChar == Underscore ? stream.Skip(styleChar, max: 0) : 0;
             var codeCount = styleChar == Backtick ? stream.Skip(Backtick, max: 0) : 0;
 
-            var text = stream.CaptureUntil(TextStopCharacters, ignoreEscaping: false);
+            var text = stream.CaptureUntil(IsTextStop, ignoreEscaping: false);
 
             // Check for italic and bold endings
             if (styleCount > 0)
@@ -490,6 +488,11 @@ namespace Markdown.MAML.Parser
             }
 
             return true;
+        }
+
+        private static bool IsTextStop(char c)
+        {
+            return c == '\r' || c == '\n' || c == '[' || c == '*' || c == '`' || c == '_';
         }
     }
 }

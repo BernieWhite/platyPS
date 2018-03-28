@@ -31,8 +31,7 @@ namespace Markdown.MAML.Transformer
                 (x.DefaultValue != y.DefaultValue) ||
                 (x.Position != y.Position) ||
                 (x.Type != y.Type) ||
-                (x.PipelineInput != y.PipelineInput) ||
-                (x.AttributesMetadata != y.AttributesMetadata)
+                (x.PipelineInput != y.PipelineInput)
                 )
             {
                 match = false;

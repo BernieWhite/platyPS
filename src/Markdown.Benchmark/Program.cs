@@ -26,15 +26,15 @@ namespace Markdown.Benchmark
         {
             var commandMarkdown = File.ReadAllText("..\\..\\..\\Invoke-Command.md");
             var aboutMarkdown = File.ReadAllText("..\\..\\..\\about_Preference_Variables.md");
-            var command = PipelineBuilder.ToMamlCommand().Process(commandMarkdown, path: null);
+            var command = PipelineBuilder.ToMamlCommand().Build().Process(commandMarkdown, path: null);
             var topic = PipelineBuilder.ToAboutTopic().Process(aboutMarkdown, path: null);
 
             for (var i = 0; i < 1000; i++)
             {
-                //PipelineBuilder.ToMamlCommand().Process(markdown);
+                PipelineBuilder.ToMamlCommand().Build().Process(commandMarkdown, path: null);
                 //PipelineBuilder.ToMamlXml().Process(new[] { command });
                 //PipelineBuilder.ToMarkdown().Process(command);
-                PipelineBuilder.ToAboutText().Process(topic);
+                //PipelineBuilder.ToAboutText().Process(topic);
             }
         }
     }
