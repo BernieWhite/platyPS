@@ -31,7 +31,7 @@ New-MarkdownHelp -Command <String[]> [-Session <PSSession>] [-Force] [-Alphabeti
 New-MarkdownHelp -MamlFile <String[]> [-ConvertNotesToList] [-ConvertDoubleDashLists] [-Force]
  [-AlphabeticParamsOrder] [-Metadata <Hashtable>] -OutputFolder <String> [-NoMetadata] [-UseFullTypeName]
  [-Encoding <Encoding>] [-WithModulePage] [-Locale <String>] [-HelpVersion <String>] [-FwLink <String>]
- [-ModuleName <String>] [-ModuleGuid <String>] [<CommonParameters>]
+ [-ModuleName <String>] [-ModuleGuid <String>] [-Option <MarkdownHelpOption>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -444,6 +444,7 @@ Accept wildcard characters: False
 ```
 
 ### -Session
+
 Provides support for remote commands.
 Pass the session that you used to create the commands with `Import-PSSession`.
 This is required to get accurate parameters metadata from the remote session.
@@ -451,6 +452,24 @@ This is required to get accurate parameters metadata from the remote session.
 ```yaml
 Type: PSSession
 Parameter Sets: FromModule, FromCommand
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Option
+
+Additional options that customize markdown updates.
+A `MarkdownHelpOption` can be created by using the `New-MarkdownHelpOption` cmdlet.
+Alternatively a hashtable or path to YAML file can be specified with options.
+
+```yaml
+Type: MarkdownHelpOption
+Parameter Sets: (All)
 Aliases:
 
 Required: False

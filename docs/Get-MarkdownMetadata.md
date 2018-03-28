@@ -14,7 +14,7 @@ Gets metadata from the header of a markdown file.
 
 ### FromPath (Default)
 ```
-Get-MarkdownMetadata -Path <String[]> [<CommonParameters>]
+Get-MarkdownMetadata [-Path] <String[]> [<CommonParameters>]
 ```
 
 ### FromMarkdownString
@@ -99,7 +99,7 @@ Parameter Sets: FromPath
 Aliases:
 
 Required: True
-Position: Named
+Position: 1
 Default value: None
 Accept pipeline input: True (ByPropertyName, ByValue)
 Accept wildcard characters: True
