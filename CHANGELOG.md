@@ -3,6 +3,9 @@ CHANGELOG
 
 ## Not released
 
+* platyPS performance updates [#315](https://github.com/PowerShell/platyPS/issues/315)
+* Added delegates to allow custom extensibility during markdown and MAML generation [#75](https://github.com/PowerShell/platyPS/issues/75)
+
 ## 0.11.0
 
 * Add default descriptions for paging parameters (#392).
