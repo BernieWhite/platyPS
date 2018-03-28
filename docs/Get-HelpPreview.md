@@ -13,7 +13,7 @@ Displays your generated external help as **Get-Help** output.
 ## SYNTAX
 
 ```
-Get-HelpPreview -Path <String[]> [-ConvertNotesToList] [-ConvertDoubleDashLists] [<CommonParameters>]
+Get-HelpPreview [-Path] <String[]> [-ConvertNotesToList] [-ConvertDoubleDashLists] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -54,7 +54,7 @@ Parameter Sets: (All)
 Aliases:
 
 Required: True
-Position: Named
+Position: 1
 Default value: None
 Accept pipeline input: True (ByValue)
 Accept wildcard characters: True

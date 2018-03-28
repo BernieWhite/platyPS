@@ -16,14 +16,15 @@ Creates help in markdown format.
 ```
 New-MarkdownHelp -Module <String[]> [-Force] [-AlphabeticParamsOrder] [-Metadata <Hashtable>]
  -OutputFolder <String> [-NoMetadata] [-UseFullTypeName] [-Encoding <Encoding>] [-WithModulePage]
- [-Locale <String>] [-HelpVersion <String>] [-FwLink <String>] [<CommonParameters>]
+ [-Locale <String>] [-HelpVersion <String>] [-FwLink <String>] [-Option <MarkdownHelpOption>]
+ [<CommonParameters>]
 ```
 
 ### FromCommand
 ```
 New-MarkdownHelp -Command <String[]> [-Force] [-AlphabeticParamsOrder] [-Metadata <Hashtable>]
  [-OnlineVersionUrl <String>] -OutputFolder <String> [-NoMetadata] [-UseFullTypeName] [-Encoding <Encoding>]
- [<CommonParameters>]
+ [-Option <MarkdownHelpOption>] [<CommonParameters>]
 ```
 
 ### FromMaml
@@ -31,7 +32,7 @@ New-MarkdownHelp -Command <String[]> [-Force] [-AlphabeticParamsOrder] [-Metadat
 New-MarkdownHelp -MamlFile <String[]> [-ConvertNotesToList] [-ConvertDoubleDashLists] [-Force]
  [-AlphabeticParamsOrder] [-Metadata <Hashtable>] -OutputFolder <String> [-NoMetadata] [-UseFullTypeName]
  [-Encoding <Encoding>] [-WithModulePage] [-Locale <String>] [-HelpVersion <String>] [-FwLink <String>]
- [-ModuleName <String>] [-ModuleGuid <String>] [<CommonParameters>]
+ [-ModuleName <String>] [-ModuleGuid <String>] [-Option <MarkdownHelpOption>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -433,6 +434,23 @@ Indicates that the target document will use a full type name instead of a short 
 
 ```yaml
 Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Option
+Additional options that customize markdown updates.
+A `MarkdownHelpOption` can be created by using the `New-MarkdownHelpOption` cmdlet.
+Alternatively a hashtable or path to YAML file can be specified with options.
+
+```yaml
+Type: MarkdownHelpOption
 Parameter Sets: (All)
 Aliases:
 

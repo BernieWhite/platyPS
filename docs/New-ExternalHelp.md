@@ -13,8 +13,8 @@ Creates external help file based on markdown supported by PlatyPS.
 ## SYNTAX
 
 ```
-New-ExternalHelp -Path <String[]> -OutputPath <String> [-ApplicableTag <String[]>] [-Encoding <Encoding>]
- [-MaxAboutWidth <Int32>] [-ErrorLogFile <String>] [-Force] [<CommonParameters>]
+New-ExternalHelp [-Path] <String[]> -OutputPath <String> [-ApplicableTag <String[]>] [-Encoding <Encoding>]
+ [-MaxAboutWidth <Int32>] [-ErrorLogFile <String>] [-Force] [-Option <MarkdownHelpOption>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -136,7 +136,7 @@ Parameter Sets: (All)
 Aliases:
 
 Required: True
-Position: Named
+Position: 1
 Default value: None
 Accept pipeline input: True (ByPropertyName, ByValue)
 Accept wildcard characters: True
@@ -203,6 +203,23 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -Option
+Additional options that customize markdown updates.
+A `MarkdownHelpOption` can be created by using the `New-MarkdownHelpOption` cmdlet.
+Alternatively a hashtable or path to YAML file can be specified with options.
+
+```yaml
+Type: MarkdownHelpOption
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### CommonParameters
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see about_CommonParameters (http://go.microsoft.com/fwlink/?LinkID=113216).
 
@@ -223,3 +240,4 @@ This cmdlet returns a **FileInfo[]** object for created files.
 [PowerShell V2 External MAML Help](https://blogs.msdn.microsoft.com/powershell/2008/12/24/powershell-v2-external-maml-help/)
 
 [Schema](https://github.com/PowerShell/platyPS/blob/master/platyPS.schema.md)
+
