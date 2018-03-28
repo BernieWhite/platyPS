@@ -4,6 +4,8 @@ using System.Linq;
 
 namespace Markdown.MAML.Parser
 {
+    internal delegate bool CharacterMatchDelegate(char c);
+
     internal sealed class MarkdownStream
     {
         private sealed class StreamCursor
@@ -444,6 +446,26 @@ namespace Markdown.MAML.Parser
             while (!EOF)
             {
                 if (!IsEscaped && c.Contains(Current))
+                {
+                    break;
+                }
+
+                length++;
+
+                Next(ignoreEscaping);
+            }
+
+            return Substring(start, length, ignoreEscaping);
+        }
+
+        public string CaptureUntil(CharacterMatchDelegate match, bool ignoreEscaping = false)
+        {
+            var start = Position;
+            var length = 0;
+
+            while (!EOF)
+            {
+                if (!IsEscaped && match(Current))
                 {
                     break;
                 }

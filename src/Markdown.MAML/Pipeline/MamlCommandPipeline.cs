@@ -1,8 +1,7 @@
-﻿using Markdown.MAML.Model.MAML;
+﻿using Markdown.MAML.Configuration;
+using Markdown.MAML.Model.MAML;
 using Markdown.MAML.Parser;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 
 namespace Markdown.MAML.Pipeline
@@ -12,15 +11,19 @@ namespace Markdown.MAML.Pipeline
     /// </summary>
     internal sealed class MamlCommandPipeline : IMamlCommandPipeline
     {
-        private readonly VisitMamlCommand _Action;
+        private readonly VisitMamlCommand _ReadMamlCommand;
+        private readonly VisitMarkdown _ReadMarkdown;
         private readonly bool _PreserveFormatting;
         private readonly string[] _Tags;
+        private readonly MamlCommandLexer _Lexer;
 
-        internal MamlCommandPipeline(VisitMamlCommand action, string[] tags, bool preserveFormatting)
+        internal MamlCommandPipeline(VisitMamlCommand readMamlCommand, VisitMarkdown readMarkdown, string[] tags, bool preserveFormatting)
         {
-            _Action = action;
+            _ReadMamlCommand = readMamlCommand;
+            _ReadMarkdown = readMarkdown;
             _PreserveFormatting = preserveFormatting;
             _Tags = tags;
+            _Lexer = new MamlCommandLexer(preserveFomatting: _PreserveFormatting);
         }
 
         public MamlCommand Process(string markdown, string path)
@@ -38,13 +41,10 @@ namespace Markdown.MAML.Pipeline
         private MamlCommand ProcessCore(string markdown, string path)
         {
             var reader = new MarkdownReader(preserveFormatting: _PreserveFormatting, yamlHeaderOnly: false);
-            var stream = reader.Read(markdown, path);
 
-            var lexer = new MamlCommandLexer(preserveFomatting: _PreserveFormatting);
+            var command = _Lexer.Process(reader.Read(_ReadMarkdown(markdown, path), path), _Tags);
 
-            var command = lexer.Process(stream, _Tags);
-
-            if (command == null || !_Action(command))
+            if (command == null || !_ReadMamlCommand(command))
             {
                 return null;
             }

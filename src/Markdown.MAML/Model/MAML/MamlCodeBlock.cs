@@ -15,11 +15,11 @@
         /// An optional language or info-string. If no language string is suppled plain text is assumed.
         /// For more information see: http://spec.commonmark.org/0.28/#info-string
         /// </summary>
-        public string LanguageMoniker { get; private set; }
+        public string LanguageMoniker { get; set; }
 
         /// <summary>
         /// The text of the code block.
         /// </summary>
-        public string Text { get; private set; }
+        public string Text { get; set; }
     }
 }

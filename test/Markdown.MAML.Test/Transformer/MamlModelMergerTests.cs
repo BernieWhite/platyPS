@@ -69,7 +69,7 @@ namespace Markdown.MAML.Test.Transformer
                 VariableLength = true,
                 Globbing = true,
                 PipelineInput = "True (ByValue)",
-                Position = "1",
+                Position = 1,
                 DefaultValue = "trololo",
                 Aliases = new string[] { "GF", "Foos", "Do" },
             };
@@ -82,7 +82,7 @@ namespace Markdown.MAML.Test.Transformer
                 VariableLength = true,
                 Globbing = true,
                 PipelineInput = "True (ByValue)",
-                Position = "2",
+                Position = 2,
                 DefaultValue = "dodododo",
                 Aliases = new string[] { "Pa1", "RemovedParam", "Gone" },
             };
@@ -173,7 +173,6 @@ namespace Markdown.MAML.Test.Transformer
                 VariableLength = true,
                 Globbing = false, // DIFF!!
                 PipelineInput = "True (ByValue)",
-                Position = "Named",  // DIFF!!
                 Aliases = new string[]{"GF","Foo","Bar"}
             };
 

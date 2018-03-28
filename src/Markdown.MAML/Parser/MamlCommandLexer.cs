@@ -20,6 +20,7 @@ namespace Markdown.MAML.Parser
         private const int EXAMPLE_HEADING_LEVEL = 3;
         private const int PARAMETERSET_NAME_HEADING_LEVEL = 3;
 
+        // Define the standard section headers that are mapped to the MamlCommand model
         private const string SYNOPSIS = "SYNOPSIS";
         private const string SYNTAX = "SYNTAX";
         private const string DESCRIPTION = "DESCRIPTION";
@@ -30,8 +31,7 @@ namespace Markdown.MAML.Parser
         private const string NOTES = "NOTES";
         private const string RELATEDLINKS = "RELATED LINKS";
 
-        public static readonly string ALL_PARAM_SETS_MONIKER = "(All)";
-
+        private static readonly string ALL_PARAM_SETS_MONIKER = "(All)";
         private static readonly string[] LINE_BREAKS = new[] { "\r\n", "\n" };
         private static readonly char[] YAML_SEPARATORS = new[] { ':' };
 
@@ -61,16 +61,16 @@ namespace Markdown.MAML.Parser
                     command = new MamlCommand
                     {
                         Name = stream.Current.Text,
-                        SupportCommonParameters = false,
-                        Metadata = metadata
+                        SupportCommonParameters = false
                     };
+
+                    command.SetMetadata(metadata);
                 }
                 else if (command != null)
                 {
                     if (IsHeading(stream.Current, COMMAND_ENTRIES_HEADING_LEVEL))
                     {
                         var matching = Synopsis(stream, command) ||
-                            //Syntax(stream, command) ||
                             Description(stream, command) ||
                             Examples(stream, command) ||
                             Parameters(stream, command, tags) ||
@@ -105,64 +105,6 @@ namespace Markdown.MAML.Parser
             stream.Next();
 
             command.Synopsis = SectionBody(stream, hasLineBreak);
-
-            return true;
-        }
-
-        private bool Syntax(TokenStream stream, MamlCommand command)
-        {
-            if (!string.Equals(SYNTAX, stream.Current.Text, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            return false;
-        }
-
-        // Really just getting parameter set names for the purpose of determining the default
-        private bool SyntaxEntry(TokenStream stream, MamlCommand command)
-        {
-            // grammar:
-            // ### ParameterSetName 
-            // ```
-            // code
-            // ```
-
-            var hasLineBreak = stream.Current.Flag.HasFlag(MarkdownTokenFlag.LineBreak);
-            var title = stream.Current.Text;
-
-            stream.Next();
-
-            // if header is omitted
-            var syntax = new MamlSyntax()
-            {
-                ParameterSetName = ALL_PARAM_SETS_MONIKER,
-                IsDefault = true
-            };
-
-            if (stream.IsTokenType(MarkdownTokenType.FencedBlock))
-            {
-                syntax.ParameterSetName = ALL_PARAM_SETS_MONIKER;
-                syntax.IsDefault = true;
-            }
-            else if (!IsHeading(stream.Current, PARAMETERSET_NAME_HEADING_LEVEL))
-            {
-                return false;
-            }
-
-            bool isDefault = stream.Current.Text.EndsWith(MarkdownStrings.DefaultParameterSetModifier);
-
-            syntax = new MamlSyntax()
-            {
-                ParameterSetName = isDefault ? stream.Current.Text.Substring(0, stream.Current.Text.Length - MarkdownStrings.DefaultParameterSetModifier.Length) : stream.Current.Text,
-                IsDefault = isDefault
-            };
-
-            stream.Next();
-
-            command.Syntax.Add(syntax);
-
-            stream.SkipUntil(MarkdownTokenType.Header);
 
             return true;
         }
@@ -317,20 +259,20 @@ namespace Markdown.MAML.Parser
 
         private static int SortParameter(MamlParameter left, MamlParameter right)
         {
-            if (string.IsNullOrEmpty(left.Position) && string.IsNullOrEmpty(right.Position))
+            if (left.IsNamed() && right.IsNamed())
             {
                 return 0;
             }
-            else if (string.IsNullOrEmpty(left.Position))
-            {
-                return -1;
-            }
-            else if (string.IsNullOrEmpty(right.Position))
+            else if (left.IsNamed())
             {
                 return 1;
             }
+            else if (right.IsNamed())
+            {
+                return -1;
+            }
 
-            var compare = left.Position.CompareTo(right.Position);
+            var compare = left.Position.Value.CompareTo(right.Position.Value);
 
             if (compare != 0)
             {
@@ -405,8 +347,6 @@ namespace Markdown.MAML.Parser
             //    return true;
             //}
 
-            parameter.ValueRequired = parameter.IsSwitchParameter() ? false : true;
-
             var addedParameter = false;
 
             while (stream.IsTokenType(MarkdownTokenType.FencedBlock))
@@ -423,8 +363,6 @@ namespace Markdown.MAML.Parser
 
                     ParameterYaml(yaml, parameter);
                 }
-
-                parameter.ValueRequired = parameter.IsSwitchParameter() ? false : true;
 
                 stream.Next();
 
@@ -631,6 +569,11 @@ namespace Markdown.MAML.Parser
                     // Only process fenced blocks if specified, and never process yaml blocks
                     if (!includeNonYamlFencedBlocks || string.Equals(stream.Current.Meta, "yaml", StringComparison.OrdinalIgnoreCase))
                     {
+                        if (stream.PeakTokenType(-1) == MarkdownTokenType.LineBreak)
+                        {
+                            AppendEnding(sb, stream.Peak(-1), _PreserveFormatting);
+                        }
+
                         break;
                     }
 
@@ -728,16 +671,26 @@ namespace Markdown.MAML.Parser
             string value;
             parameter.Type = pairs.TryGetValue(MarkdownStrings.Type, out value) ? value : null;
             parameter.Aliases = pairs.TryGetValue(MarkdownStrings.Aliases, out value) ? SplitByCommaAndTrim(value) : new string[0];
-            parameter.ParameterValueGroup.AddRange(pairs.TryGetValue(MarkdownStrings.Accepted_values, out value) ? SplitByCommaAndTrim(value) : new string[0]);
-            parameter.Required = pairs.TryGetValue(MarkdownStrings.Required, out value) ? StringComparer.OrdinalIgnoreCase.Equals("true", value) : false;
-            parameter.Position = pairs.TryGetValue(MarkdownStrings.Position, out value) ? value : "named";
+            parameter.ParameterValueGroup = pairs.TryGetValue(MarkdownStrings.Accepted_values, out value) ? SplitByCommaAndTrim(value) : new string[0];
+            parameter.Required = pairs.TryGetValue(MarkdownStrings.Required, out value) ? StringComparer.OrdinalIgnoreCase.Equals(bool.TrueString, value) : false;
+            parameter.Position = Position(pairs);
             parameter.DefaultValue = pairs.TryGetValue(MarkdownStrings.Default_value, out value) ? value : null;
-            parameter.PipelineInput = pairs.TryGetValue(MarkdownStrings.Accept_pipeline_input, out value) ? value : "false";
-            parameter.Globbing = pairs.TryGetValue(MarkdownStrings.Accept_wildcard_characters, out value) ? StringComparer.OrdinalIgnoreCase.Equals("true", value) : false;
+            parameter.PipelineInput = pairs.TryGetValue(MarkdownStrings.Accept_pipeline_input, out value) ? value : bool.FalseString;
+            parameter.Globbing = pairs.TryGetValue(MarkdownStrings.Accept_wildcard_characters, out value) ? StringComparer.OrdinalIgnoreCase.Equals(bool.TrueString, value) : false;
             // having Applicable for the whole parameter is a little bit sloppy: ideally it should be per yaml entry.
             // but that will make the code super ugly and it's unlikely that these two features would need to be used together.
             parameter.Applicable = pairs.TryGetValue(MarkdownStrings.Applicable, out value) ? SplitByCommaAndTrim(value) : null;
             parameter.ParameterSet = pairs.TryGetValue(MarkdownStrings.Parameter_Sets, out value) ? SplitByCommaAndTrim(value) : new string[] { ALL_PARAM_SETS_MONIKER };
+        }
+
+        private static byte? Position(Dictionary<string, string> index)
+        {
+            if (!index.TryGetValue(MarkdownStrings.Position, value: out string position) || !byte.TryParse(position, out byte result))
+            {
+                return null;
+            }
+
+            return result;
         }
 
         private static string[] SplitByCommaAndTrim(string input)
@@ -758,6 +711,7 @@ namespace Markdown.MAML.Parser
         private static Dictionary<string, string> ParseYamlKeyValuePairs(string yamlSnippet)
         {
             var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
             foreach (string lineIterator in yamlSnippet.Split(LINE_BREAKS, StringSplitOptions.None))
             {
                 var line = lineIterator.Trim();

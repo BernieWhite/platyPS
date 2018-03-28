@@ -3,7 +3,6 @@ using Markdown.MAML.Model.Markdown;
 using Markdown.MAML.Parser;
 using Markdown.MAML.Resources;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -25,13 +24,13 @@ namespace Markdown.MAML.Renderer
         private const int PARAMETERSET_NAME_HEADING_LEVEL = 3;
         public static readonly string ALL_PARAM_SETS_MONIKER = "(All)";
 
-        public static Lazy<Regex> ExampleTitle = new Lazy<Regex>(() => new Regex(@"^(-| ){0,}(?<title>([^\f\n\r\t\v\x85\p{Z}-][^\f\n\r\t\v\x85]+[^\f\n\r\t\v\x85\p{Z}-]))(-| ){0,}$", RegexOptions.Compiled));
+        private static Lazy<Regex> ExampleTitle = new Lazy<Regex>(() => new Regex(@"^(-| ){0,}(?<title>([^\f\n\r\t\v\x85\p{Z}-][^\f\n\r\t\v\x85]+[^\f\n\r\t\v\x85\p{Z}-]))(-| ){0,}$", RegexOptions.Compiled));
 
         private ParserMode _Mode;
         private StreamWriter _Writer;
         private char[] _WriteBuffer = new char[104];
 
-        public int MaxSyntaxWidth { get; private set; }
+        private int _MaxSyntaxWidth;
 
         private const string NewLine = "\r\n";
         private const string LineBreak = "\r\n\r\n";
@@ -42,30 +41,13 @@ namespace Markdown.MAML.Renderer
         private const string ArraySeperator = ", ";
         private const string TripleDash = "---";
 
-        /// <summary>
-        /// 110 is a good width value, because it doesn't cause github to add horizontal scroll bar
-        /// </summary>
-        public const int DEFAULT_SYNTAX_WIDTH = 110;
-
-        public MarkdownV2Renderer(ParserMode mode) : this(mode, DEFAULT_SYNTAX_WIDTH) { }
-
         public MarkdownV2Renderer(ParserMode mode, int maxSyntaxWidth)
         {
-            MaxSyntaxWidth = maxSyntaxWidth;
+            _MaxSyntaxWidth = maxSyntaxWidth;
             _Mode = mode;
         }
 
         public string MamlModelToString(MamlCommand mamlCommand, bool skipYamlHeader)
-        {
-            return MamlModelToString(mamlCommand, null, skipYamlHeader);
-        }
-
-        public string MamlModelToString(MamlCommand mamlCommand, Hashtable yamlHeader)
-        {
-            return MamlModelToString(mamlCommand, yamlHeader, false);
-        }
-
-        private string MamlModelToString(MamlCommand mamlCommand, Hashtable yamlHeader, bool skipYamlHeader)
         {
             using (var stream = new MemoryStream())
             {
@@ -103,6 +85,12 @@ namespace Markdown.MAML.Renderer
 
             // Use a sorted dictionary to force the metadata into alphabetical order by key for consistency.
             var sortedHeader = new SortedDictionary<string, string>(command.Metadata, StringComparer.OrdinalIgnoreCase);
+
+            // Always add online version even if it is empty
+            if (!sortedHeader.ContainsKey("online version"))
+            {
+                sortedHeader.Add("online version", string.Empty);
+            }
 
             foreach (var pair in sortedHeader)
             {
@@ -326,9 +314,9 @@ namespace Markdown.MAML.Renderer
 
                 AppendYamlKeyValue(MarkdownStrings.Aliases, parameter.Aliases);
 
-                if (parameter.ParameterValueGroup.Count > 0)
+                if (parameter.ParameterValueGroup?.Length > 0)
                 {
-                    AppendYamlKeyValue(MarkdownStrings.Accepted_values, parameter.ParameterValueGroup.ToArray());
+                    AppendYamlKeyValue(MarkdownStrings.Accepted_values, parameter.ParameterValueGroup);
                 }
 
                 if (parameter.Applicable != null)
@@ -339,7 +327,7 @@ namespace Markdown.MAML.Renderer
                 WriteRaw(NewLine);
 
                 AppendYamlKeyValue(MarkdownStrings.Required, set.Item2.Required.ToString());
-                AppendYamlKeyValue(MarkdownStrings.Position, set.Item2.IsNamed() ? "Named" : set.Item2.Position);
+                AppendYamlKeyValue(MarkdownStrings.Position, set.Item2.IsNamed() ? "Named" : set.Item2.Position.Value.ToString());
                 AppendYamlKeyValue(MarkdownStrings.Default_value, string.IsNullOrWhiteSpace(parameter.DefaultValue) ? "None" : parameter.DefaultValue);
                 AppendYamlKeyValue(MarkdownStrings.Accept_pipeline_input, parameter.PipelineInput);
                 AppendYamlKeyValue(MarkdownStrings.Accept_wildcard_characters, parameter.Globbing.ToString());
@@ -423,12 +411,12 @@ namespace Markdown.MAML.Renderer
             return title;
         }
 
-        public static string GetSyntaxString(MamlCommand command, MamlSyntax syntax)
+        private string GetSyntaxString(MamlCommand command, MamlSyntax syntax)
         {
-            return GetSyntaxString(command, syntax, DEFAULT_SYNTAX_WIDTH);
+            return GetSyntaxString(command, syntax, _MaxSyntaxWidth);
         }
 
-        public static string GetSyntaxString(MamlCommand command, MamlSyntax syntax, int maxSyntaxWidth)
+        internal static string GetSyntaxString(MamlCommand command, MamlSyntax syntax, int maxSyntaxWidth)
         {
             // TODO: we may want to add ParameterValueGroup info here,
             // but it's fine for now
@@ -611,7 +599,6 @@ namespace Markdown.MAML.Renderer
             else
             {
                 string[] paragraphs = body.Split(new string[] { NewLine }, StringSplitOptions.RemoveEmptyEntries);
-                //body = GetAutoWrappingForMarkdown(paragraphs.Select(para => GetEscapedMarkdownText(para.Trim())).ToArray());
                 body = GetAutoWrappingForMarkdown(paragraphs.Select(para => para.Trim()).ToArray());
 
                 Write(body);

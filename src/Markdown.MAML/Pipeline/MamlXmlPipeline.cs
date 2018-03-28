@@ -1,4 +1,5 @@
-﻿using Markdown.MAML.Model.MAML;
+﻿using Markdown.MAML.Configuration;
+using Markdown.MAML.Model.MAML;
 using Markdown.MAML.Parser;
 using Markdown.MAML.Renderer;
 using System.Collections.Generic;
@@ -9,15 +10,19 @@ namespace Markdown.MAML.Pipeline
 {
     internal sealed class MamlXmlPipeline : IMamlXmlPipeline
     {
-        private readonly VisitMamlCommand _Action;
+        private readonly VisitMamlCommand _ReadMamlCommand;
+        private readonly VisitMarkdown _ReadMarkdown;
         private readonly string[] _Tags;
         private readonly MamlRenderer _Renderer;
+        private readonly MamlCommandLexer _Lexer;
 
-        internal MamlXmlPipeline(VisitMamlCommand action, string[] tags)
+        internal MamlXmlPipeline(VisitMamlCommand readMamlCommand, VisitMarkdown readMarkdown, string[] tags)
         {
-            _Action = action;
+            _ReadMamlCommand = readMamlCommand;
+            _ReadMarkdown = readMarkdown;
             _Tags = tags;
             _Renderer = new MamlRenderer();
+            _Lexer = new MamlCommandLexer(preserveFomatting: false);
         }
 
         public string Process(IEnumerable<MamlCommand> command)
@@ -26,7 +31,7 @@ namespace Markdown.MAML.Pipeline
 
             foreach (var c in command)
             {
-                if (_Action(c))
+                if (_ReadMamlCommand(c))
                 {
                     commands.Add(c);
                 }
@@ -43,7 +48,7 @@ namespace Markdown.MAML.Pipeline
             {
                 var markdown = File.ReadAllText(p, encoding);
 
-                commands.Add(ProcessCore(markdown, p));
+                commands.Add(ProcessCore(_ReadMarkdown(markdown, p), p));
             }
 
             return _Renderer.MamlModelToString(commands);
@@ -52,13 +57,10 @@ namespace Markdown.MAML.Pipeline
         private MamlCommand ProcessCore(string markdown, string path)
         {
             var reader = new MarkdownReader(preserveFormatting: false, yamlHeaderOnly: false);
-            var stream = reader.Read(markdown, path);
 
-            var lexer = new MamlCommandLexer(preserveFomatting: false);
+            var command = _Lexer.Process(reader.Read(markdown, path), _Tags);
 
-            var command = lexer.Process(stream, _Tags);
-
-            if (command == null || !_Action(command))
+            if (command == null || !_ReadMamlCommand(command))
             {
                 return null;
             }

@@ -450,16 +450,16 @@ This command adds the commands in the History01.xml file to the current session 
         /// <returns></returns>
         private static string MarkdownStringToMamlString(string markdown)
         {
-            return PipelineBuilder.ToMamlXml().Process(new[] { PipelineBuilder.ToMamlCommand().Process(markdown) });
+            return PipelineBuilder.ToMamlXml().Build().Process(new[] { PipelineBuilder.ToMamlCommand().Build().Process(markdown, path: null) });
         }
 
         private static string MarkdownStringToMarkdownString(string markdown, ParserMode parserMode)
         {
             // Parse
-            var mamlModel = PipelineBuilder.ToMamlCommand().Process(markdown);
+            var mamlModel = PipelineBuilder.ToMamlCommand().Build().Process(markdown, path: null);
 
             // Render as markdown
-            return PipelineBuilder.ToMarkdown(config =>
+            return PipelineBuilder.ToMarkdown().Configure(config =>
             {
                 config.UseNoMetadata();
 
@@ -467,7 +467,7 @@ This command adds the commands in the History01.xml file to the current session 
                 {
                     config.UsePreserveFormatting();
                 }
-            }).Process(mamlModel);
+            }).Build().Process(mamlModel);
         }
     }
 }

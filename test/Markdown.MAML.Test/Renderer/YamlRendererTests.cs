@@ -1,19 +1,15 @@
 ﻿using Markdown.MAML.Model.MAML;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Markdown.MAML.Model.Markdown;
 using Markdown.MAML.Model.YAML;
 using Markdown.MAML.Renderer;
+using System.Linq;
 using Xunit;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
-using Markdown.MAML.Model.Markdown;
 
 namespace Markdown.MAML.Test.Renderer
 {
-    public class YamlRendererTests
+    public sealed class YamlRendererTests
     {
         [Fact]
         public void RendererProducesNameAndTextFields()
@@ -131,7 +127,7 @@ namespace Markdown.MAML.Test.Renderer
             Assert.Equal(expectedParameter.Name, optionalParameter.Name);
             Assert.Equal(expectedParameter.ParameterValueGroup, optionalParameter.ParameterValueGroup);
             Assert.Equal(expectedParameter.PipelineInput, optionalParameter.PipelineInput);
-            Assert.Equal(expectedParameter.Position, optionalParameter.Position);
+            Assert.Equal(expectedParameter.Position.ToString(), optionalParameter.Position);
             Assert.Equal(expectedParameter.Type, optionalParameter.Type);
         }
 
@@ -177,7 +173,7 @@ namespace Markdown.MAML.Test.Renderer
             Assert.Equal(expectedParameter.Name, requiredParameter.Name);
             Assert.Equal(expectedParameter.ParameterValueGroup, requiredParameter.ParameterValueGroup);
             Assert.Equal(expectedParameter.PipelineInput, requiredParameter.PipelineInput);
-            Assert.Equal(expectedParameter.Position, requiredParameter.Position);
+            Assert.Equal("Named", requiredParameter.Position);
             Assert.Equal(expectedParameter.Type, requiredParameter.Type);
         }
 
@@ -242,10 +238,11 @@ namespace Markdown.MAML.Test.Renderer
                 DefaultValue = "Test",
                 Description = "Test Parameter",
                 PipelineInput = "false",
-                Position = "1",
+                Position = 1,
                 Type = "System.String"
+                //,
+                //ParameterValueGroup = new [] { "TestGroup" }
             };
-            mamlOptionalParameter.ParameterValueGroup.Add("TestGroup");
 
             var mamlRequiredParameter = new MamlParameter
             {
@@ -256,10 +253,10 @@ namespace Markdown.MAML.Test.Renderer
                 DefaultValue = "Test2",
                 Description = "Test Parameter 2",
                 PipelineInput = "true",
-                Position = "2",
-                Type = "System.Boolean"
+                //Position = 2,
+                Type = "System.Boolean",
+                ParameterValueGroup = new [] { "TestGroup2" }
             };
-            mamlRequiredParameter.ParameterValueGroup.Add("TestGroup2");
 
             command.Parameters.AddRange(new [] {mamlRequiredParameter, mamlOptionalParameter});
 

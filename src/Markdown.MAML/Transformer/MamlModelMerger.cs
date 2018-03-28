@@ -34,8 +34,10 @@ namespace Markdown.MAML.Transformer
                     Name = metadataModel.Name,
                     Synopsis = stringModel.Synopsis,
                     Description = stringModel.Description,
-                    Notes = stringModel.Notes,
+                    Notes = stringModel.Notes
                 };
+
+                result.SetMetadata(stringModel.Metadata);
             }
             catch (Exception ex)
             {

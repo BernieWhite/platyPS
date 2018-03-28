@@ -1,4 +1,5 @@
-﻿using Markdown.MAML.Model.MAML;
+﻿using Markdown.MAML.Configuration;
+using Markdown.MAML.Model.MAML;
 using Markdown.MAML.Model.Markdown;
 using Markdown.MAML.Pipeline;
 using Markdown.MAML.Renderer;
@@ -18,7 +19,7 @@ namespace Markdown.MAML.Test.Renderer
                 Synopsis = new SectionBody(@"\< \` \\< \\\< \ \\ \( ( ) [ ] `")
             };
 
-            var markdown = PipelineBuilder.ToMarkdown(config => config.UseNoMetadata()).Process(command);
+            var markdown = PipelineBuilder.ToMarkdown().Configure(config => config.UseNoMetadata()).Build().Process(command);
 
             Assert.StartsWith(@"# Get-Foo
 
@@ -50,7 +51,7 @@ namespace Markdown.MAML.Test.Renderer
 
             syntax.Parameters.Add(param1);
 
-            string syntaxString = MarkdownV2Renderer.GetSyntaxString(command, syntax);
+            string syntaxString = MarkdownV2Renderer.GetSyntaxString(command, syntax, MarkdownOption.DEFAULT_SYNTAX_WIDTH);
             Assert.Equal("Get-Foo [-Bar <BarObject>] [<CommonParameters>]", syntaxString);
         }
 
@@ -70,12 +71,25 @@ namespace Markdown.MAML.Test.Renderer
                 LinkUri = linkUri
             });
 
-            var markdown = PipelineBuilder.ToMarkdown(config =>
+            var markdown = PipelineBuilder.ToMarkdown().Configure(config =>
             {
                 config.SetOnlineVersionUrl();
-            }).Process(command);
+            }).Build().Process(command);
 
             Assert.Contains($"---\r\nonline version: {linkUri}", markdown);
+        }
+
+        [Fact]
+        public void ReturnsEmptyOnlineVersionMetadata()
+        {
+            var command = new MamlCommand
+            {
+                Name = "Test-OnlineLink"
+            };
+
+            var markdown = PipelineBuilder.ToMarkdown().Build().Process(command);
+
+            Assert.Contains($"---\r\nonline version:\r\n", markdown);
         }
 
         [Fact]
@@ -87,7 +101,7 @@ namespace Markdown.MAML.Test.Renderer
                 Notes = new SectionBody("", SectionFormatOption.LineBreakAfterHeader)
             };
 
-            var markdown = PipelineBuilder.ToMarkdown().Process(command);
+            var markdown = PipelineBuilder.ToMarkdown().Build().Process(command);
 
             Assert.DoesNotContain("\r\n\r\n\r\n", markdown);
         }
@@ -134,7 +148,7 @@ namespace Markdown.MAML.Test.Renderer
             syntax1.Parameters.Add(parameter2);
             command.Syntax.Add(syntax1);
 
-            var markdown = PipelineBuilder.ToMarkdown().Process(command);
+            var markdown = PipelineBuilder.ToMarkdown().Build().Process(command);
 
             // Does not use line break and should not be added
             Assert.Contains("### -Name\r\nName description.", markdown);
@@ -157,7 +171,7 @@ namespace Markdown.MAML.Test.Renderer
                 Notes = new SectionBody("This is a note")
             };
 
-            var markdown = PipelineBuilder.ToMarkdown().Process(command);
+            var markdown = PipelineBuilder.ToMarkdown().Build().Process(command);
 
             // Does not use line break and should not be added
             Assert.Contains("This is a long description with a list:\r\n\r\n- List item 1.\r\n- List item 2.\r\n", markdown);
@@ -230,7 +244,7 @@ namespace Markdown.MAML.Test.Renderer
             command.Examples.Add(example6);
             command.Examples.Add(example7);
 
-            var markdown = PipelineBuilder.ToMarkdown().Process(command);
+            var markdown = PipelineBuilder.ToMarkdown().Build().Process(command);
             //string markdown = renderer.MamlModelToString(command, null);
 
             // Does not use line break and should not be added
@@ -258,9 +272,10 @@ namespace Markdown.MAML.Test.Renderer
 
             command.Syntax.Add(new MamlSyntax());
 
-            var markdown = PipelineBuilder.ToMarkdown().Process(command);
+            var markdown = PipelineBuilder.ToMarkdown().Build().Process(command);
             //string markdown = renderer.MamlModelToString(command, null);
             Common.AssertMultilineEqual(@"---
+online version:
 schema: 2.0.0
 ---
 
@@ -307,9 +322,10 @@ For more information, see about_CommonParameters (http://go.microsoft.com/fwlink
                 Description = new SectionBody(@"”“‘’––-")
             };
 
-            var markdown = PipelineBuilder.ToMarkdown().Process(command);
+            var markdown = PipelineBuilder.ToMarkdown().Build().Process(command);
 
             Common.AssertMultilineEqual(@"---
+online version:
 schema: 2.0.0
 ---
 
@@ -360,12 +376,12 @@ For more information, see about_CommonParameters (http://go.microsoft.com/fwlink
                 VariableLength = true,
                 Globbing = true,
                 PipelineInput = "True (ByValue)",
-                Position = "1",
+                Position = 1,
                 DefaultValue = "trololo",
                 Aliases = new string[] { "GF", "Foos", "Do" },
-                Applicable = new string[] { "Module1", "Module2" }
+                Applicable = new string[] { "Module1", "Module2" },
+                ParameterValueGroup = new string[] { "Value1", "Value2" }
             };
-            parameter.ParameterValueGroup.AddRange(new string[] { "Value1", "Value2" });
 
             command.Parameters.Add(parameter);
 
@@ -423,10 +439,11 @@ For more information, see about_CommonParameters (http://go.microsoft.com/fwlink
                 ["null"] = null
             };
             command.SetMetadata(metadata);
-            var markdown = PipelineBuilder.ToMarkdown().Process(command);
+            var markdown = PipelineBuilder.ToMarkdown().Build().Process(command);
             Common.AssertMultilineEqual(@"---
 foo: bar
 null:
+online version:
 schema: 2.0.0
 ---
 
@@ -573,9 +590,10 @@ Second line.
             command.Syntax.Add(syntax1);
             command.Syntax.Add(syntax2);
 
-            var markdown = PipelineBuilder.ToMarkdown().Process(command);
+            var markdown = PipelineBuilder.ToMarkdown().Build().Process(command);
             //string markdown = renderer.MamlModelToString(command, null);
             Common.AssertMultilineEqual(@"---
+online version:
 schema: 2.0.0
 ---
 
@@ -681,9 +699,10 @@ weired
                 }
             );
 
-            var markdown = PipelineBuilder.ToMarkdown(config => config.UsePreserveFormatting()).Process(command);
+            var markdown = PipelineBuilder.ToMarkdown().Configure(config => config.UsePreserveFormatting()).Build().Process(command);
 
             Common.AssertMultilineEqual(@"---
+online version:
 schema: 2.0.0
 ---
 

@@ -21,7 +21,7 @@ namespace Markdown.MAML.Model.MAML
         {
             return StringComparer.OrdinalIgnoreCase.Equals(parameter.Name, other.Name) &&
                 parameter.Required == other.Required &&
-                StringComparer.OrdinalIgnoreCase.Equals(parameter.Position, other.Position) &&
+                parameter.Position == other.Position &&
                 StringComparer.OrdinalIgnoreCase.Equals(parameter.PipelineInput, other.PipelineInput) &&
                 parameter.Globbing == other.Globbing;
         }
@@ -34,8 +34,7 @@ namespace Markdown.MAML.Model.MAML
 
         public static bool IsNamed(this MamlParameter parameter)
         {
-            return string.IsNullOrWhiteSpace(parameter.Position) ||
-                StringComparer.OrdinalIgnoreCase.Equals(parameter.Position, "Named");
+            return !parameter.Position.HasValue;
         }
     }
 }

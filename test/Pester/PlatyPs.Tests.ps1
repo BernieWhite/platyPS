@@ -880,7 +880,7 @@ And [hyper](http://link.com).
         )
     }
 
-    $v2md = Update-MarkdownHelp $v1md -Verbose -AlphabeticParamsOrder
+    $v2md = Update-MarkdownHelp $v1md -AlphabeticParamsOrder
 
     It 'upgrades stub' {
         $v2md.Name | Should Be 'Get-MyCoolStuff.md'
@@ -947,7 +947,7 @@ Get-MyCoolStuff [[-Foo] <String>] [[-Bar] <String>] [<CommonParameters>]
         normalizeEnds($v2md | Get-Content | Where-Object {$_.StartsWith('Get-MyCoolStuff')} | Out-String) | Should Be $expectedSyntax
     }
 
-    $v3md = Update-MarkdownHelp $v2md -Verbose -AlphabeticParamsOrder -UseFullTypeName
+    $v3md = Update-MarkdownHelp $v2md -AlphabeticParamsOrder -UseFullTypeName
 
     $v3markdown = $v3md | Get-Content
 
@@ -1332,5 +1332,184 @@ Describe 'New-YamlHelp' {
 
     It 'throws for OutputFolder that is a file'{
         { New-YamlHelp "$root\docs\New-YamlHelp.md" -OutputFolder "$outFolder\yaml\New-YamlHelp.yml" } | Should Throw
+    }
+}
+
+Describe 'PlatyPS pipeline' -Tag 'pipeline' {
+    
+    Context 'ReadMarkdown' {
+
+        function global:Test-ReadMarkdownHook {}
+
+        $targetDoc = Join-Path -Path $outFolder -ChildPath 'Test-ReadMarkdownHook.md';
+        New-MarkdownHelp -OutputFolder $outFolder -Force -Command 'Test-ReadMarkdownHook' -WarningAction SilentlyContinue;
+
+        It 'is called during Update-MarkdownHelp' {
+
+            # Change the description
+            $option = New-MarkdownHelpOption -ReadMarkdown {
+                param($markdown, $path)
+                
+                return $markdown.Replace("{{Fill in the Description}}", "This is the description.");
+            };
+
+            Update-MarkdownHelp -Path $targetDoc -Option $option -WarningAction SilentlyContinue;
+
+            $targetDoc | Should -FileContentMatchMultiline 'This is the description.'
+        }
+
+        It 'is called during New-ExternalHelp' {
+
+            # Change the description
+            $option = New-MarkdownHelpOption -ReadMarkdown {
+                param($markdown, $path)
+
+                return $markdown.Replace("This is the description", "This is a new description.");
+            };
+
+            New-ExternalHelp -Path $targetDoc -Option $option -OutputPath (Join-Path -Path $outFolder -ChildPath 'platyPS-ReadMarkdown.xml') -Force;
+
+            (Join-Path -Path $outFolder -ChildPath 'platyPS-ReadMarkdown.xml') | Should -FileContentMatchMultiline 'This is a new description.'
+        }
+    }
+
+    Context 'WriteMarkdown' {
+
+        function global:Test-WriteMarkdownHook {}
+
+        $targetDoc = Join-Path -Path $outFolder -ChildPath 'Test-WriteMarkdownHook.md';
+
+        It 'is called during New-MarkdownHelp' {
+
+            # Change the description
+            $option = New-MarkdownHelpOption -WriteMarkdown {
+                param($markdown, $path)
+
+                return $markdown.Replace("{{Fill in the Description}}", "This is the description.");
+            };
+
+            New-MarkdownHelp -OutputFolder $outFolder -Option $option -Force -Command 'Test-WriteMarkdownHook' -WarningAction SilentlyContinue;
+
+            $targetDoc | Should -FileContentMatchMultiline 'This is the description.'
+        }
+
+        It 'is called during Update-MarkdownHelp' {
+
+            # Remove Windows PS prompt
+            $option = New-MarkdownHelpOption -WriteMarkdown {
+                param($markdown, $path)
+
+                return $markdown.Replace("`r`nPS C:\> ", "`r`n");
+            };
+
+            Update-MarkdownHelp -Path $targetDoc -Option $option -WarningAction SilentlyContinue;
+
+            $targetDoc | Should -Not -FileContentMatchMultiline 'PS C:\\\>'
+        }
+    }
+
+    Context 'ReadCommand' {
+
+        function global:Test-ReadCommandHook {}
+
+        $targetDoc = Join-Path -Path $outFolder -ChildPath 'Test-ReadCommandHook.md';
+        New-MarkdownHelp -OutputFolder $outFolder -Force -Command 'Test-ReadCommandHook' -WarningAction SilentlyContinue;
+
+        It 'is called during Update-MarkdownHelp' {
+
+            # Change the description
+            $option = New-MarkdownHelpOption -ReadCommand {
+                param($command)
+                
+                $command.Description.Text = 'This is the description.';
+            };
+
+            Update-MarkdownHelp -Path $targetDoc -Option $option -WarningAction SilentlyContinue;
+
+            $targetDoc | Should -FileContentMatchMultiline 'This is the description.'
+        }
+
+        It 'is called during New-ExternalHelp' {
+
+            # Change the description
+            $option = New-MarkdownHelpOption -ReadCommand {
+                param($command)
+
+               $command.Description.Text = 'This is a new description.';
+            };
+
+            New-ExternalHelp -Path $targetDoc -Option $option -OutputPath (Join-Path -Path $outFolder -ChildPath 'platyPS-ReadCommand.xml') -Force;
+
+            (Join-Path -Path $outFolder -ChildPath 'platyPS-ReadCommand.xml') | Should -FileContentMatchMultiline 'This is a new description.'
+        }
+    }
+
+    Context 'WriteCommand' {
+
+        function global:Test-WriteCommandHook {
+            param (
+                [Switch]$AsJob
+            )
+        }
+
+        $targetDoc = Join-Path -Path $outFolder -ChildPath 'Test-WriteCommandHook.md';
+
+        # Remove AsJob parameter by name
+        $option = New-MarkdownHelpOption -WriteCommand {
+            param($command)
+            
+            foreach ($p in $command.Parameters.ToArray()) {
+                if ($p.Name -eq 'AsJob') {
+                    $command.Parameters.Remove($p);
+                }
+            }
+        };
+
+        It 'is called during New-MarkdownHelp' {
+
+            New-MarkdownHelp -OutputFolder $outFolder -Option $option -Force -Command 'Test-WriteCommandHook' -WarningAction SilentlyContinue;
+
+            $targetDoc | Should -Not -FileContentMatchMultiline 'AsJob'
+        }
+
+        It 'is called during Update-MarkdownHelp' {
+
+            Update-MarkdownHelp -Path $targetDoc -Option $option -WarningAction SilentlyContinue;
+
+            $targetDoc | Should -Not -FileContentMatchMultiline 'AsJob'
+        }
+    }
+}
+
+Describe 'PlatyPS help' -Tag 'help' {
+
+    # PlatyPS markdown help should always be up-to-date in to repository, if Update-MarkdownHelp generates different
+    # help files this is a logic error or the help files are out of date.
+
+    $sourceDocs = Join-Path -Path $root -ChildPath 'docs';
+    $targetDocs = Join-Path -Path $outFolder -ChildPath 'docs';
+
+    Remove-Item -Path $targetDocs -Force -Recurse;
+    Copy-Item -Path $sourceDocs -Destination $outFolder -Force -Recurse;
+
+    Context 'markdown help is up-to-date' {
+
+        Update-MarkdownHelp $targetDocs;
+
+        foreach ($file in (Get-ChildItem -Path $targetDocs -File -Filter '*.md')) {
+            It "$($file.Name) is up-to-date" {
+                (Get-FileHash -Path $file.FullName).Hash | Should -BeExactly (Get-FileHash -Path (Join-Path -Path $sourceDocs -ChildPath $file.Name)).Hash;
+            }
+        }
+    }
+
+    Context 'markdown help is complete' {
+        
+        It "All commands have markdown help" {
+
+            New-MarkdownHelp -Module 'platyPS' -OutputFolder $targetDocs -Force;
+
+            (Get-ChildItem -Path $targetDocs | Measure-Object).Count | Should -Be (Get-ChildItem -Path $sourceDocs | Measure-Object).Count
+        }
     }
 }

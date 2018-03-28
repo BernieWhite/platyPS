@@ -473,7 +473,7 @@ bar: bar1
 ---
 
 foo: bar # this is not part of yaml metadata
-");
+", path: null);
 
             Assert.Equal("foo1", map["foo"]);
             Assert.Equal("bar1", map["bar"]);
