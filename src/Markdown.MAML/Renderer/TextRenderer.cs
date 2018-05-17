@@ -233,6 +233,11 @@ namespace Markdown.MAML.Renderer
 
                         splitPos = text.LastIndexOf(Space, splitPos, chunkSize);
 
+                        if (splitPos == -1 && chunkSize == maxWidth)
+                        {
+                            splitPos = maxWidth;
+                        }
+
                         // Count the number of characters to excluding the space
                         var splitCount = splitPos - innerPos;
 

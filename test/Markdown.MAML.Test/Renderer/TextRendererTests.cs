@@ -428,6 +428,31 @@ TEST 1
             Common.AssertMultilineEqual(expected, actual);
         }
 
+        [Fact]
+        public void RendererBreakLongLine()
+        {
+            var markdown = @"# TopicName
+## about_TopicName
+
+# Long line
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+";
+
+            var actual = MarkdownToString(markdown);
+
+            var expected = @"TOPIC
+    about_topicname
+
+LONG LINE
+    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+";
+
+            Common.AssertMultilineEqual(expected, actual);
+        }
+
         private string MarkdownToString(string markdown)
         {
             return PipelineBuilder.ToAboutText().Process(markdown, path: null);
