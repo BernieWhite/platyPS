@@ -336,6 +336,8 @@ function Update-MarkdownHelp
 
         [System.Management.Automation.Runspaces.PSSession]$Session,
 
+        [System.Management.Automation.Runspaces.PSSession]$Session,
+
         [Parameter(Mandatory = $False)]
         [Markdown.MAML.Configuration.MarkdownHelpOption]$Option
     )
@@ -387,10 +389,10 @@ function Update-MarkdownHelp
         }
 
         $markdownFiles = GetMarkdownFile -Path $targetPaths;
-        
+
         if ($Null -eq $markdownFiles -or $markdownFiles.Length -eq 0)
         {
-             log -warning "No markdown found in $Path"
+            log -warning "No markdown found in $Path"
             return
         }
 
@@ -428,8 +430,12 @@ function Update-MarkdownHelp
                 log -warning  "command $name not found in the session, skipping upgrade for $file";
                 return
             }
-            
-            $reflectionModel = GetMamlObject -Cmdlet $name -UseFullTypeName:$UseFullTypeName;
+
+            # update the help file entry in the metadata
+            $metadata = Get-MarkdownMetadata $filePath
+            $metadata["external help file"] = GetHelpFileName $command
+            $reflectionModel = GetMamlObject -Session $Session -Cmdlet $name -UseFullTypeName:$UseFullTypeName
+            $metadata[$script:MODULE_PAGE_MODULE_NAME] = $reflectionModel.ModuleName
 
             $merger = New-Object Markdown.MAML.Transformer.MamlModelMerger -ArgumentList $infoCallback
             $newModel = $merger.Merge($reflectionModel, $oldModel);
@@ -767,6 +773,8 @@ function New-ExternalHelp
         [string]$ErrorLogFile,
 
         [switch]$Force,
+        
+        [switch]$ShowProgress,
 
         [switch]$ShowProgress,
 
@@ -807,6 +815,11 @@ function New-ExternalHelp
             Function Write-Progress() {}
         }
         Write-Verbose -Message ("[New-ExternalHelp][Start] Adding files [$($perfTrace.ElapsedMilliseconds)]");
+
+        if ( -not $ShowProgress.IsPresent -or $(Get-Variable -Name IsCoreClr -ValueOnly -ErrorAction SilentlyContinue) )
+        {
+            Function Write-Progress() {}
+        }
     }
 
     process
@@ -2152,7 +2165,7 @@ function GetCommands
         else
         {
             if ($Session) {
-                $commands.Name | % {
+                $commands.Name | ForEach-Object {
                     # yeild
                     MyGetCommand -Cmdlet $_ -Session $Session
                 }
@@ -2198,40 +2211,6 @@ function GetTypeString
     }
 
     return $TypeObjectHash.Name
-}
-
-function HasModule {
-
-    param (
-        [Parameter(Mandatory = $True)]
-        [string]$Module
-    )
-
-    if ($Module -eq 'Microsoft.PowerShell.Core') {
-        return $True;
-    }
-
-    return $Null -ne (Get-Module -Name $Module);
-}
-
-<#
-    You cannot just write 0..($n-1) because if $n == 0 you are screwed.
-    Hence this helper.
-#>
-function GetRange
-{
-    Param(
-        [CmdletBinding()]
-        [parameter(mandatory=$true)]
-        [int]$n
-    )
-    if ($n -lt 0) {
-        throw "GetRange $n is unsupported: value less then 0"
-    }
-    if ($n -eq 0) {
-        return
-    }
-    0..($n - 1)
 }
 
 <#
@@ -2287,12 +2266,19 @@ function MyGetCommand
         }
     }
 
+    # This Select-Object -Skip | Select-Object -SkipLast
+    # looks a little crazy, but this is just a workaround for
+    # https://github.com/PowerShell/PowerShell/issues/6979
+    # -First and -Index breaks the subsequent Get-Help calls
+
     # expand second layer of properties on the selected item
-    function expand2([string]$property1, [int]$num, [string]$property2) {
+    function expand2([string]$property1, [int]$num, [int]$totalNum, [string]$property2) {
+        $skipLast = $totalNum - $num - 1
         Invoke-Command -Session $Session -ScriptBlock {
             Get-Command $using:Cmdlet |
             Select-Object -ExpandProperty $using:property1 |
-            Select-Object -Index $using:num -Wait |
+            Select-Object -Skip $using:num |
+            Select-Object -SkipLast $using:skipLast |
             Select-Object -ExpandProperty $using:property2
         }
     }
@@ -2301,13 +2287,16 @@ function MyGetCommand
     function expand3(
         [string]$property1,
         [int]$num,
+        [int]$totalNum,
         [string]$property2,
         [string]$property3
         ) {
+        $skipLast = $totalNum - $num - 1
         Invoke-Command -Session $Session -ScriptBlock {
             Get-Command $using:Cmdlet |
             Select-Object -ExpandProperty $using:property1 |
-            Select-Object -Index $using:num -Wait |
+            Select-Object -Skip $using:num |
+            Select-Object -SkipLast $using:skipLast |
             Select-Object -ExpandProperty $using:property2 |
             Select-Object -ExpandProperty $using:property3
         }
@@ -2318,18 +2307,18 @@ function MyGetCommand
     }
 
     # helper function to fill up the parameters metadata
-    function getParams([int]$num) {
+    function getParams([int]$num, [int]$totalNum) {
         # this call we need to fill-up ParameterSets.Parameters.ParameterType with metadata
-        $parameterType = expand3 'ParameterSets' $num 'Parameters' 'ParameterType'
+        $parameterType = expand3 'ParameterSets' $num $totalNum 'Parameters' 'ParameterType'
         # this call we need to fill-up ParameterSets.Parameters with metadata
-        $parameters = expand2 'ParameterSets' $num 'Parameters'
+        $parameters = expand2 'ParameterSets' $num $totalNum 'Parameters'
         if ($parameters.Length -ne $parameterType.Length) {
             $errStr = "Metadata for $Cmdlet doesn't match length.`n" +
             "This should never happen! Please report the issue on https://github.com/PowerShell/platyPS/issues"
             Write-Error $errStr
         }
 
-        foreach ($i in (GetRange $parameters.Length)) {
+        foreach ($i in 0..($parameters.Length - 1)) {
             $typeObjectHash = New-Object -TypeName pscustomobject -Property @{
                 Name = $parameterType[$i].Name
                 IsGenericType = $parameterType[$i].IsGenericType
@@ -2350,8 +2339,8 @@ function MyGetCommand
 
     $psets = expand 'ParameterSets'
     $psetsArray = @()
-    foreach ($i in (GetRange $psets.Count)) {
-        $parameters = getParams $i
+    foreach ($i in 0..($psets.Count - 1)) {
+        $parameters = getParams $i $psets.Count
         $psetsArray += @(New-Object -TypeName pscustomobject -Property @{
             Name = $psets[$i].Name
             IsDefault = $psets[$i].IsDefault
@@ -2370,6 +2359,20 @@ function MyGetCommand
     }
 
     return New-Object -TypeName pscustomobject -Property $commandHash
+}
+
+function HasModule {
+
+    param (
+        [Parameter(Mandatory = $True)]
+        [string]$Module
+    )
+
+    if ($Module -eq 'Microsoft.PowerShell.Core') {
+        return $True;
+    }
+
+    return $Null -ne (Get-Module -Name $Module);
 }
 
 <#
@@ -2417,7 +2420,7 @@ function GetMamlObject
         # GetCommands is slow over remoting, piping here is important for good UX
         GetCommands $Module -Session $Session | ForEach-Object {
             $Command = $_
-            Write-Verbose ("`tProcessing: " + $Command.Name)
+            Write-Verbose ("Processing: " + $Command.Name)
             $Help = Get-Help $Command.Name
             # yield
             ConvertPsObjectsToMamlModel -Command $Command -Help $Help -UsePlaceholderForSynopsis:(CommandHasAutogeneratedSynopsis $Help)  -UseFullTypeName:$UseFullTypeName
