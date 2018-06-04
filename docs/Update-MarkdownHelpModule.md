@@ -14,7 +14,7 @@ Update all files in a markdown help module folder.
 
 ```
 Update-MarkdownHelpModule [-Path] <String[]> [[-Encoding] <Encoding>] [-RefreshModulePage]
- [[-LogPath] <String>] [-LogAppend] [-AlphabeticParamsOrder] [<CommonParameters>]
+ [[-LogPath] <String>] [-LogAppend] [-AlphabeticParamsOrder] [-Session <PSSession>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -150,6 +150,23 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -Session
+Provides support for remote commands.
+Pass the session that you used to create the commands with `Import-PSSession`.
+This is required to get accurate parameters metadata from the remote session.
+
+```yaml
+Type: PSSession
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### CommonParameters
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see about_CommonParameters (http://go.microsoft.com/fwlink/?LinkID=113216).
 
@@ -170,3 +187,4 @@ This cmdlet returns a **FileInfo[]** object for updated and new files.
 [Character Encoding in the .NET Framework](https://msdn.microsoft.com/en-us/library/ms404377.aspx)
 
 [Using PowerShell to write a file in UTF-8 without the BOM](http://stackoverflow.com/questions/5596982/using-powershell-to-write-a-file-in-utf-8-without-the-bom)
+

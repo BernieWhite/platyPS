@@ -1,0 +1,57 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "dotnet build",
+            "command": "dotnet build",
+            "type": "shell",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "dotnet test",
+            "command": "dotnet test",
+            "type": "shell",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "build",
+            "command": "./build.ps1",
+            "type": "shell",
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "pester tests",
+            "command": "Invoke-Pester .",
+            "type": "shell",
+            "group": "test",
+            "problemMatcher": "$pester"
+        },
+        {
+            "label": "benchmark",
+            "command": "dotnet",
+            "args": [
+                {
+                    "quoting": "weak",
+                    "value": "run -f netcoreapp2.0 -c Release -- benchmark --output ${workspaceFolder}"
+                }
+            ],
+            "options": {
+                "cwd": "./src/Markdown.Benchmark"
+            },
+            "type": "shell",
+            "problemMatcher": []
+        }
+    ]
+}

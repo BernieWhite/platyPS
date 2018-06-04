@@ -13,8 +13,8 @@ Creates external help file based on markdown supported by PlatyPS.
 ## SYNTAX
 
 ```
-New-ExternalHelp [-Path] <String[]> -OutputPath <String> [-ApplicableTag <String[]>] [-Encoding <Encoding>]
- [-MaxAboutWidth <Int32>] [-ErrorLogFile <String>] [-Force] [-Option <MarkdownHelpOption>] [<CommonParameters>]
+New-ExternalHelp -Path <String[]> -OutputPath <String> [-ApplicableTag <String[]>] [-Encoding <Encoding>]
+ [-MaxAboutWidth <Int32>] [-ErrorLogFile <String>] [-Force] [-ShowProgress] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -203,13 +203,13 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Option
-Additional options that customize markdown updates.
-A `MarkdownHelpOption` can be created by using the `New-MarkdownHelpOption` cmdlet.
-Alternatively a hashtable or path to YAML file can be specified with options.
+### -ShowProgress
+Display progress bars under parsing existing markdown files.
+
+If this is used generating of help is much slower.
 
 ```yaml
-Type: MarkdownHelpOption
+Type: SwitchParameter
 Parameter Sets: (All)
 Aliases:
 

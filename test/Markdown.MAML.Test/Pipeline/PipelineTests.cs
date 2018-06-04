@@ -106,6 +106,12 @@ namespace Markdown.MAML.Test.Pipeline
         public void ToMarkdownHooksCalled()
         {
             var option = new MarkdownHelpOption();
+
+            option.Pipeline.WriteCommand.Add(mamlCommand =>
+            {
+                mamlCommand.RemoveParameter("AsJob");
+            });
+
             option.Pipeline.WriteMarkdown.Add((markdown, path) =>
             {
                 return markdown.Replace("Test-HookTwo", "Test-HookOne");
@@ -121,9 +127,22 @@ namespace Markdown.MAML.Test.Pipeline
                 Name = "Test-PowerShell"
             };
 
+            var parameter = new MamlParameter
+            {
+                Name = "AsJob",
+                Description = "This is a parameter that should be deleted."
+            };
+
+            var syntax = new MamlSyntax();
+            syntax.Parameters.Add(parameter);
+            command.Parameters.Add(parameter);
+            command.Syntax.Add(syntax);
+
             var actual = PipelineBuilder.ToMarkdown(option).Build().Process(command);
 
+            // Check that hook changes have been applied
             Assert.Contains("# Test-HookOne", actual);
+            Assert.DoesNotContain("-AsJob", actual);
         }
 
         [Fact]

@@ -14,17 +14,16 @@ Creates help in markdown format.
 
 ### FromModule
 ```
-New-MarkdownHelp -Module <String[]> [-Force] [-AlphabeticParamsOrder] [-Metadata <Hashtable>]
- -OutputFolder <String> [-NoMetadata] [-UseFullTypeName] [-Encoding <Encoding>] [-WithModulePage]
- [-Locale <String>] [-HelpVersion <String>] [-FwLink <String>] [-Option <MarkdownHelpOption>]
- [<CommonParameters>]
+New-MarkdownHelp -Module <String[]> [-Session <PSSession>] [-Force] [-AlphabeticParamsOrder]
+ [-Metadata <Hashtable>] -OutputFolder <String> [-NoMetadata] [-UseFullTypeName] [-Encoding <Encoding>]
+ [-WithModulePage] [-Locale <String>] [-HelpVersion <String>] [-FwLink <String>] [<CommonParameters>]
 ```
 
 ### FromCommand
 ```
-New-MarkdownHelp -Command <String[]> [-Force] [-AlphabeticParamsOrder] [-Metadata <Hashtable>]
- [-OnlineVersionUrl <String>] -OutputFolder <String> [-NoMetadata] [-UseFullTypeName] [-Encoding <Encoding>]
- [-Option <MarkdownHelpOption>] [<CommonParameters>]
+New-MarkdownHelp -Command <String[]> [-Session <PSSession>] [-Force] [-AlphabeticParamsOrder]
+ [-Metadata <Hashtable>] [-OnlineVersionUrl <String>] -OutputFolder <String> [-NoMetadata] [-UseFullTypeName]
+ [-Encoding <Encoding>] [<CommonParameters>]
 ```
 
 ### FromMaml
@@ -444,14 +443,14 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Option
-Additional options that customize markdown updates.
-A `MarkdownHelpOption` can be created by using the `New-MarkdownHelpOption` cmdlet.
-Alternatively a hashtable or path to YAML file can be specified with options.
+### -Session
+Provides support for remote commands.
+Pass the session that you used to create the commands with `Import-PSSession`.
+This is required to get accurate parameters metadata from the remote session.
 
 ```yaml
-Type: MarkdownHelpOption
-Parameter Sets: (All)
+Type: PSSession
+Parameter Sets: FromModule, FromCommand
 Aliases:
 
 Required: False

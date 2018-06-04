@@ -14,7 +14,7 @@ Update PlatyPS markdown help files.
 
 ```
 Update-MarkdownHelp [-Path] <String[]> [[-Encoding] <Encoding>] [[-LogPath] <String>] [-LogAppend]
- [-AlphabeticParamsOrder] [-UseFullTypeName] [<CommonParameters>]
+ [-AlphabeticParamsOrder] [-UseFullTypeName] [-Session <PSSession>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -69,6 +69,29 @@ Mode                LastWriteTime         Length Name
 This command updates a markdown help file.
 It writes log information to the markdown.log file.
 
+### Example 3: Update all files in a folder using options
+```
+PS C:\> Update-MarkdownHelp -Path ".\docs" -Option @{ 'markdown.parameterSort' = 'Name' }
+```
+
+```
+    Directory: D:\working\PlatyPS\docs
+
+
+Mode                LastWriteTime         Length Name
+----                -------------         ------ ----
+-a----        5/22/2016   6:54 PM           1496 Get-HelpPreview.md
+-a----        5/22/2016   6:54 PM           3208 Get-MarkdownMetadata.md
+-a----        5/22/2016   6:54 PM           3059 New-ExternalHelp.md
+-a----        5/22/2016   6:54 PM           2702 New-ExternalHelpCab.md
+-a----        5/22/2016   6:54 PM           6234 New-MarkdownHelp.md
+-a----        5/22/2016   6:54 PM           2346 Update-MarkdownHelp.md
+-a----        5/22/2016   6:54 PM           1633 Update-MarkdownHelpModule.md
+-a----        5/22/2016   6:54 PM           1630 Update-MarkdownHelpSchema.md
+```
+
+This command updates all markdown help files in the specified path and sorts the parameters by name.
+
 ## PARAMETERS
 
 ### -Encoding
@@ -77,7 +100,6 @@ Specify a **System.Text.Encoding** object.
 For more information, see [Character Encoding in the .NET Framework](https://msdn.microsoft.com/en-us/library/ms404377.aspx) in the Microsoft Developer Network.
 For example, you can control Byte Order Mark (BOM) preferences.
 For more information, see [Using PowerShell to write a file in UTF-8 without the BOM](http://stackoverflow.com/questions/5596982/using-powershell-to-write-a-file-in-utf-8-without-the-bom) at the Stack Overflow community.
-
 
 ```yaml
 Type: Encoding
@@ -93,7 +115,6 @@ Accept wildcard characters: False
 
 ### -LogAppend
 Indicates that this cmdlet appends information to the log instead overwriting it.
-
 
 ```yaml
 Type: SwitchParameter
@@ -112,7 +133,6 @@ Specifies a file path for log information.
 The cmdlet writes the VERBOSE stream to the log.
 If you specify the *Verbose* parameter, this cmdlet also writes that information to the console. 
 
-
 ```yaml
 Type: String
 Parameter Sets: (All)
@@ -127,7 +147,6 @@ Accept wildcard characters: False
 
 ### -Path
 Specifies an array of paths of markdown files and folders to update.
-
 
 ```yaml
 Type: String[]
@@ -163,6 +182,23 @@ Indicates that the target document will use a full type name instead of a short 
 
 ```yaml
 Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Session
+Provides support for remote commands.
+Pass the session that you used to create the commands with `Import-PSSession`.
+This is required to get accurate parameters metadata from the remote session.
+
+```yaml
+Type: PSSession
 Parameter Sets: (All)
 Aliases:
 

@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Markdown.MAML.Model.MAML
 {
@@ -120,6 +121,25 @@ namespace Markdown.MAML.Model.MAML
             }
 
             Metadata[key] = value;
+        }
+
+        /// <summary>
+        /// Removes a parameter.
+        /// </summary>
+        /// <param name="name">The parameter by name.</param>
+        public void RemoveParameter(string name)
+        {
+            var parameter = Parameters.FirstOrDefault(p => p.Name == name);
+
+            if (parameter != null)
+            {
+                Parameters.Remove(parameter);
+
+                foreach (var syntax in Syntax)
+                {
+                    syntax.Parameters.Remove(parameter);
+                }
+            }
         }
 
         public string GetMetadata(string key)

@@ -41,6 +41,10 @@ $assemblyPaths = (
     (Resolve-Path "publish/YamlDotNet.dll").Path
 )
 
+# Build benchmark tool with a specific .NET Core version, which is required
+# for dependencies and keeps performance testing more consistent
+& $DotnetCli publish ./src/Markdown.Benchmark -f netcoreapp2.0 --output=$pwd/out/benchmark /p:Configuration=Release
+
 # copy artifacts
 New-Item -Type Directory out -ErrorAction SilentlyContinue > $null
 Copy-Item -Rec -Force src\platyPS out
