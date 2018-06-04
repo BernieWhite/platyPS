@@ -1,0 +1,14 @@
+
+
+markdown:
+  width: 110
+  # Should a line break be added after headers
+  sectionFormat: LineBreakAfterHeader
+  # Set the default infostring for fenced sections
+  infoString: output
+  parameterSort: name
+
+# Exclude parameters
+exclude:
+  parameter:
+    - AsJob

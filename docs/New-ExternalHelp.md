@@ -204,7 +204,6 @@ Accept wildcard characters: False
 ```
 
 ### -ShowProgress
-
 Display progress bars under parsing existing markdown files.
 
 If this is used generating of help is much slower.
@@ -228,7 +227,7 @@ A `MarkdownHelpOption` can be created by using the `New-MarkdownHelpOption` cmdl
 Alternatively a hashtable or path to YAML file can be specified with options.
 
 ```yaml
-Type: MarkdownHelpOption
+Type: SwitchParameter
 Parameter Sets: (All)
 Aliases:
 

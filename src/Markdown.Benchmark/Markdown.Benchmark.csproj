@@ -1,16 +1,29 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net46</TargetFramework>
+    <TargetFrameworks>netcoreapp2.0;net46</TargetFrameworks>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.10.13" />
-    <PackageReference Include="BenchmarkDotNet.Diagnostics.Windows" Version="0.10.13" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.10.14" />
+    <PackageReference Include="Microsoft.Extensions.CommandLineUtils" Version="1.1.1" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net46' ">
+    <PackageReference Include="BenchmarkDotNet.Diagnostics.Windows" Version="0.10.14" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Markdown.MAML\Markdown.MAML.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="about_Preference_Variables.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Invoke-Command.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

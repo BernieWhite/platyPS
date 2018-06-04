@@ -96,7 +96,6 @@ namespace Markdown.MAML.Model.MAML
                 FullType = fullType
             };
 
-
             // we have well-known parameters and can generate a reasonable description for them
             // https://github.com/PowerShell/platyPS/issues/211
             if (string.IsNullOrEmpty(description))

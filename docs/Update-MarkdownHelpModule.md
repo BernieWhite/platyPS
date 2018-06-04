@@ -218,3 +218,4 @@ This cmdlet returns a **FileInfo[]** object for updated and new files.
 [Character Encoding in the .NET Framework](https://msdn.microsoft.com/en-us/library/ms404377.aspx)
 
 [Using PowerShell to write a file in UTF-8 without the BOM](http://stackoverflow.com/questions/5596982/using-powershell-to-write-a-file-in-utf-8-without-the-bom)
+

@@ -13,7 +13,7 @@ Generates a .cab file.
 ## SYNTAX
 
 ```
-New-ExternalHelpCab -CabFilesFolder <String> -LandingPagePath <String> -OutputFolder <String>
+New-ExternalHelpCab [-CabFilesFolder] <String> [-LandingPagePath] <String> [-OutputFolder] <String>
  [-IncrementHelpVersion] [<CommonParameters>]
 ```
 
@@ -53,7 +53,7 @@ Parameter Sets: (All)
 Aliases:
 
 Required: True
-Position: Named
+Position: 0
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -70,7 +70,7 @@ Parameter Sets: (All)
 Aliases:
 
 Required: True
-Position: Named
+Position: 1
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -86,7 +86,7 @@ Parameter Sets: (All)
 Aliases:
 
 Required: True
-Position: Named
+Position: 2
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -126,4 +126,6 @@ The cmldet saves its results in the output folder that the *OutputPath* paramete
 ## RELATED LINKS
 
 [New-ExternalHelp](New-ExternalHelp.md)
+
 [New-MarkdownAboutHelp](New-MarkdownAboutHelp.md)
+

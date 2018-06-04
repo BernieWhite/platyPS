@@ -444,7 +444,6 @@ Accept wildcard characters: False
 ```
 
 ### -Session
-
 Provides support for remote commands.
 Pass the session that you used to create the commands with `Import-PSSession`.
 This is required to get accurate parameters metadata from the remote session.
@@ -468,8 +467,8 @@ A `MarkdownHelpOption` can be created by using the `New-MarkdownHelpOption` cmdl
 Alternatively a hashtable or path to YAML file can be specified with options.
 
 ```yaml
-Type: MarkdownHelpOption
-Parameter Sets: (All)
+Type: PSSession
+Parameter Sets: FromModule, FromCommand
 Aliases:
 
 Required: False

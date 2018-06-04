@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Not released
 
+* Support for remote modules.
+* The ShowProgress parameter was added to the New-ExternalHelp function. By default progress bars are not display to increase speed of files processing.
 * platyPS performance updates [#315](https://github.com/PowerShell/platyPS/issues/315)
 * Added delegates to allow custom extensibility during markdown and MAML generation [#75](https://github.com/PowerShell/platyPS/issues/75)
 

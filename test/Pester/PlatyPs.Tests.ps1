@@ -1515,15 +1515,13 @@ Describe 'PlatyPS pipeline' -Tag 'pipeline' {
         # Remove AsJob parameter by name
         $option = New-MarkdownHelpOption -WriteCommand {
             param($command)
-            
-            foreach ($p in $command.Parameters.ToArray()) {
-                if ($p.Name -eq 'AsJob') {
-                    $command.Parameters.Remove($p);
-                }
-            }
+
+            $command.RemoveParameter('AsJob');
         };
 
         It 'is called during New-MarkdownHelp' {
+
+            # TODO: Issue, parameters are removed but syntax is not updated
 
             New-MarkdownHelp -OutputFolder $outFolder -Option $option -Force -Command 'Test-WriteCommandHook' -WarningAction SilentlyContinue;
 
