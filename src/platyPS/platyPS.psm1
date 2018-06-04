@@ -2,19 +2,19 @@
 
 ## DEVELOPERS NOTES & CONVENTIONS
 ##
-##  1. Non-exported functions (subroutines) should avoid using 
+##  1. Non-exported functions (subroutines) should avoid using
 ##     PowerShell standard Verb-Noun naming convention.
 ##     They should use camalCase or PascalCase instead.
-##  2. SMALL subroutines, used only from ONE function 
+##  2. SMALL subroutines, used only from ONE function
 ##     should be placed inside the parent function body.
 ##     They should use camalCase for the name.
-##  3. LARGE subroutines and subroutines used from MORE THEN ONE function 
-##     should be placed after the IMPLEMENTATION text block in the middle 
+##  3. LARGE subroutines and subroutines used from MORE THEN ONE function
+##     should be placed after the IMPLEMENTATION text block in the middle
 ##     of this module.
 ##     They should use PascalCase for the name.
 ##  4. Add comment "# yeild" on subroutine calls that write values to pipeline.
 ##     It would help keep code maintainable and simplify ramp up for others.
-## 
+##
 
 ## Script constants
 
@@ -37,12 +37,6 @@ $script:MODULE_PAGE_ADDITIONAL_LOCALE = "Additional Locale"
 
 $script:MAML_ONLINE_LINK_DEFAULT_MONIKER = 'Online Version:'
 
-# Write-Progress is not very useful on coreclr
-if (Get-Variable -Name IsCoreClr -ValueOnly -ErrorAction SilentlyContinue) {
-    # silent Write-Progress
-    function Write-Progress() {}
-}
-
 [Markdown.MAML.Configuration.MarkdownHelpOption]::GetWorkingPath = {
 
     $Null = validateWorkingProvider;
@@ -58,13 +52,17 @@ function New-MarkdownHelp
         [Parameter(Mandatory=$true, ValueFromPipeline=$true, ParameterSetName="FromModule")]
         [string[]]$Module,
 
-        [Parameter(Mandatory=$true, 
+        [Parameter(Mandatory=$true,
             ParameterSetName="FromCommand")]
         [string[]]$Command,
 
-        [Parameter(Mandatory=$true, 
+        [Parameter(Mandatory=$true,
             ParameterSetName="FromMaml")]
         [string[]]$MamlFile,
+
+        [Parameter(ParameterSetName="FromModule")]
+        [Parameter(ParameterSetName="FromCommand")]
+        [System.Management.Automation.Runspaces.PSSession]$Session,
 
         [Parameter(ParameterSetName="FromMaml")]
         [switch]$ConvertNotesToList,
@@ -85,7 +83,7 @@ function New-MarkdownHelp
         [string]$OutputFolder,
 
         [switch]$NoMetadata,
-        
+
         [switch]$UseFullTypeName,
 
         [System.Text.Encoding]$Encoding = $script:UTF8_NO_BOM,
@@ -108,11 +106,11 @@ function New-MarkdownHelp
         [Parameter(ParameterSetName="FromMaml")]
         [string]
         $FwLink = "{{Please enter FwLink manually}}",
-        
+
         [Parameter(ParameterSetName="FromMaml")]
         [string]
         $ModuleName = "MamlModule",
-        
+
         [Parameter(ParameterSetName="FromMaml")]
         [string]
         $ModuleGuid = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
@@ -213,7 +211,7 @@ function New-MarkdownHelp
                     throw "Command $_ not found in the session."
                 }
 
-                GetMamlObject -Cmdlet $_ -UseFullTypeName:$UseFullTypeName | processMamlObjectToFile
+                GetMamlObject -Session $Session -Cmdlet $_ -UseFullTypeName:$UseFullTypeName | processMamlObjectToFile
             }
         }
         else {
@@ -223,7 +221,7 @@ function New-MarkdownHelp
             else {
                 $iterator = $MamlFile
             }
-            
+
             $iterator | ForEach-Object {
                 if ($PSCmdlet.ParameterSetName -eq 'FromModule') {
                     $moduleName = $_;
@@ -232,7 +230,7 @@ function New-MarkdownHelp
                         throw "Module $moduleName is not imported in the session. Run 'Import-Module $moduleName'."
                     }
 
-                    GetMamlObject -Module $moduleName -UseFullTypeName:$UseFullTypeName | processMamlObjectToFile
+                    GetMamlObject -Session $Session -Module $moduleName -UseFullTypeName:$UseFullTypeName | processMamlObjectToFile
 
                     $ModuleGuid = (Get-Module $ModuleName).Guid
                     $CmdletNames = GetCommands -AsNames -Module $ModuleName
@@ -247,7 +245,7 @@ function New-MarkdownHelp
 
                     $CmdletNames += GetMamlObject -MamlFile $_ | ForEach-Object {$_.Name}
                 }
-                
+
                 if($WithModulePage) {
                     if(-not $ModuleGuid) {
                         $ModuleGuid = "00000000-0000-0000-0000-000000000000"
@@ -334,6 +332,8 @@ function Update-MarkdownHelp
         [switch]$AlphabeticParamsOrder,
         [switch]$UseFullTypeName,
 
+        [System.Management.Automation.Runspaces.PSSession]$Session,
+
         [Parameter(Mandatory = $False)]
         [Markdown.MAML.Configuration.MarkdownHelpOption]$Option
     )
@@ -366,7 +366,7 @@ function Update-MarkdownHelp
         }
     }
 
-    end 
+    end
     {
         function log
         {
@@ -385,10 +385,10 @@ function Update-MarkdownHelp
         }
 
         $markdownFiles = GetMarkdownFile -Path $targetPaths;
-        
+
         if ($Null -eq $markdownFiles -or $markdownFiles.Length -eq 0)
         {
-             log -warning "No markdown found in $Path"
+            log -warning "No markdown found in $Path"
             return
         }
 
@@ -421,8 +421,12 @@ function Update-MarkdownHelp
                 log -warning  "command $name not found in the session, skipping upgrade for $file";
                 return
             }
-            
-            $reflectionModel = GetMamlObject -Cmdlet $name -UseFullTypeName:$UseFullTypeName;
+
+            # update the help file entry in the metadata
+            $metadata = Get-MarkdownMetadata $filePath
+            $metadata["external help file"] = GetHelpFileName $command
+            $reflectionModel = GetMamlObject -Session $Session -Cmdlet $name -UseFullTypeName:$UseFullTypeName
+            $metadata[$script:MODULE_PAGE_MODULE_NAME] = $reflectionModel.ModuleName
 
             $merger = New-Object Markdown.MAML.Transformer.MamlModelMerger -ArgumentList $infoCallback
             $newModel = $merger.Merge($reflectionModel, $oldModel);
@@ -471,7 +475,7 @@ function Merge-MarkdownHelp
         $MarkdownFiles += GetMarkdownFilesFromPath $Path
     }
 
-    end 
+    end
     {
         function log
         {
@@ -483,14 +487,14 @@ function Merge-MarkdownHelp
             $message = "[Update-MarkdownHelp] $([datetime]::now) $message"
             if ($warning)
             {
-                Merge-Warning $message
+                Write-Warning $message
             }
             else
             {
                 Write-Verbose $message
             }
         }
-        
+
         if (-not $MarkdownFiles)
         {
              log -warning "No markdown found in $Path"
@@ -553,21 +557,23 @@ function Update-MarkdownHelpModule
             ValueFromPipeline=$true)]
         [SupportsWildcards()]
         [string[]]$Path,
-        
+
         [System.Text.Encoding]$Encoding = $script:UTF8_NO_BOM,
         [switch]$RefreshModulePage,
         [string]$LogPath,
         [switch]$LogAppend,
-        [switch]$AlphabeticParamsOrder
+        [switch]$AlphabeticParamsOrder,
+
+        [System.Management.Automation.Runspaces.PSSession]$Session
     )
-    
+
     begin
     {
         validateWorkingProvider
         $infoCallback = GetInfoCallback $LogPath -Append:$LogAppend
     }
 
-    end 
+    end
     {
         function log
         {
@@ -575,7 +581,7 @@ function Update-MarkdownHelpModule
                 [string]$message,
                 [switch]$warning
             )
-            
+
             $message = "[Update-MarkdownHelpModule] $([datetime]::now) $message"
             if ($warning)
             {
@@ -584,7 +590,7 @@ function Update-MarkdownHelpModule
 
             $infoCallback.Invoke($message)
         }
-    
+
         foreach ($modulePath in $Path)
         {
             $module = $null
@@ -596,19 +602,19 @@ function Update-MarkdownHelpModule
                 $module = $h.$script:MODULE_PAGE_MODULE_NAME | Select-Object -First 1
                 log "Determined module name for $modulePath as $module"
             }
-            
+
             if (-not $module)
             {
                 Write-Error "Cannot determine module name for $modulePath. You should use New-MarkdownHelp -WithModulePage to create HelpModule"
                 continue
             }
-        
+
             # always append on this call
             log ("[Update-MarkdownHelpModule]" + (Get-Date).ToString())
             log ("Updating docs for Module " + $module + " in " + $modulePath)
-            $affectedFiles = Update-MarkdownHelp -Path $modulePath -LogPath $LogPath -LogAppend -Encoding $Encoding -AlphabeticParamsOrder:$AlphabeticParamsOrder
-            $affectedFiles # yeild
-            
+            $affectedFiles = Update-MarkdownHelp -Session $Session -Path $modulePath -LogPath $LogPath -LogAppend -Encoding $Encoding -AlphabeticParamsOrder:$AlphabeticParamsOrder
+            $affectedFiles # yield
+
             $allCommands = GetCommands -AsNames -Module $Module
             if (-not $allCommands)
             {
@@ -643,7 +649,7 @@ function New-MarkdownAboutHelp
         [string] $OutputFolder,
         [string] $AboutName
     )
-    
+
     begin
     {
         validateWorkingProvider
@@ -660,7 +666,7 @@ function New-MarkdownAboutHelp
             $NewAboutTopic = New-Item -Path $OutputFolder -Name "about_$($AboutName).md"
             Set-Content -Value $AboutContent -Path $NewAboutTopic -Encoding UTF8
         }
-        else 
+        else
         {
             throw "The output folder does not exist."
         }
@@ -682,10 +688,10 @@ function New-YamlHelp
         [string]$OutputFolder,
 
         [System.Text.Encoding]$Encoding = [System.Text.Encoding]::UTF8,
-        
+
         [switch]$Force
     )
-    begin 
+    begin
     {
         validateWorkingProvider
 
@@ -701,11 +707,11 @@ function New-YamlHelp
             throw "$OutputFolder is not a container"
         }
     }
-    process 
+    process
     {
         $MarkdownFiles += GetMarkdownFilesFromPath $Path
     }
-    end 
+    end
     {
         $MarkdownFiles | ForEach-Object {
             Write-Verbose "[New-YamlHelp] Input markdown file $_"
@@ -755,6 +761,8 @@ function New-ExternalHelp
         [string]$ErrorLogFile,
 
         [switch]$Force,
+        
+        [switch]$ShowProgress,
 
         [Parameter(Mandatory = $False)]
         [Markdown.MAML.Configuration.MarkdownHelpOption]$Option
@@ -782,24 +790,29 @@ function New-ExternalHelp
             $IsOutputContainer = $false
             Write-Verbose "[New-ExternalHelp] Use $OutputPath as path to a file"
         }
-        else 
+        else
         {
             New-Item -Type Directory $OutputPath -ErrorAction SilentlyContinue > $null
             Write-Verbose "[New-ExternalHelp] Use $OutputPath as path to a directory"
         }
 
         Write-Verbose -Message ("[New-ExternalHelp][Start] Adding files [$($perfTrace.ElapsedMilliseconds)]");
+
+        if ( -not $ShowProgress.IsPresent -or $(Get-Variable -Name IsCoreClr -ValueOnly -ErrorAction SilentlyContinue) )
+        {
+            Function Write-Progress() {}
+        }
     }
 
     process
     {
         $MarkdownFiles += GetMarkdownFilesFromPath $Path
-        
+
         if($MarkdownFiles)
         {
             $AboutFiles += GetAboutTopicsFromPath -Path $Path -MarkDownFilesAlreadyFound $MarkdownFiles.FullName
         }
-        else 
+        else
         {
             $AboutFiles += GetAboutTopicsFromPath -Path $Path
         }
@@ -958,7 +971,7 @@ function Get-HelpPreview
             # we need a copy of maml file to bypass powershell cache,
             # in case we reuse the same filename few times.
             $MamlCopyPath = [System.IO.Path]::GetTempFileName()
-            try 
+            try
             {
                 if ($ConvertDoubleDashLists)
                 {
@@ -971,25 +984,25 @@ function Get-HelpPreview
                     }
                 }
 
-                if ($ConvertNotesToList) 
+                if ($ConvertNotesToList)
                 {
                     # Add inline bullet-list, as described in https://github.com/PowerShell/platyPS/issues/125
-                    $xml.helpItems.command.alertSet.alert | 
-                        ForEach-Object { 
+                    $xml.helpItems.command.alertSet.alert |
+                        ForEach-Object {
                             # make first <para> a list item
                             # add indentations to other <para> to make them continuation of list item
-                            $_.ChildNodes | Select-Object -First 1 | 
+                            $_.ChildNodes | Select-Object -First 1 |
                             ForEach-Object {
                                 $newInnerXml = '* ' + $_.get_InnerXml()
                                 $_.set_InnerXml($newInnerXml)
                             }
 
-                            $_.ChildNodes | Select-Object -Skip 1 | 
+                            $_.ChildNodes | Select-Object -Skip 1 |
                             ForEach-Object {
                                 # this character is not a valid space.
                                 # We have to use some odd character here, becasue help engine strips out
                                 # all legetimate whitespaces.
-                                # Note: powershell doesn't render it properly, it will appear as a non-writable char. 
+                                # Note: powershell doesn't render it properly, it will appear as a non-writable char.
                                 $newInnerXml = ([string][char]0xc2a0) * 2 + $_.get_InnerXml()
                                 $_.set_InnerXml($newInnerXml)
                             }
@@ -1008,10 +1021,10 @@ function Get-HelpPreview
                 }
 
                 $xml.Save($MamlCopyPath)
-                
+
                 foreach ($command in $xml.helpItems.command.details.name)
                 {
-                    #PlatyPS will have trouble parsing a command with space around the name. 
+                    #PlatyPS will have trouble parsing a command with space around the name.
                     $command = $command.Trim()
                     $thisDefinition = @"
 
@@ -1038,7 +1051,7 @@ filter $command
 
 Microsoft.PowerShell.Core\Export-ModuleMember -Function @()
 "@
-                    $m = New-Module ( [scriptblock]::Create( "$thisDefinition" )) 
+                    $m = New-Module ( [scriptblock]::Create( "$thisDefinition" ))
                     $help = & $m { $innerHelp }
                     # this is the second part of the workaround for https://github.com/PowerShell/platyPS/issues/144
                     # see comments above for context
@@ -1097,8 +1110,8 @@ function New-ExternalHelpCab
     )
     begin
     {
-        validateWorkingProvider 
-        New-Item -Type Directory $OutputFolder -ErrorAction SilentlyContinue > $null  
+        validateWorkingProvider
+        New-Item -Type Directory $OutputFolder -ErrorAction SilentlyContinue > $null
     }
     process
     {
@@ -1107,14 +1120,14 @@ function New-ExternalHelpCab
         $MakeCab = Get-Command MakeCab
         if(-not $MakeCab)
         {
-            throw "MakeCab.exe is not a registered command." 
+            throw "MakeCab.exe is not a registered command."
         }
         #Testing for files in source directory
         if((Get-ChildItem -Path $CabFilesFolder).Count -le 0)
         {
             throw "The file count in the cab files directory is zero."
         }
-        
+
 
     ###Get Yaml Metadata here
     $Metadata = Get-MarkdownMetadata -Path $LandingPagePath
@@ -1125,7 +1138,7 @@ function New-ExternalHelpCab
     $FwLink = $Metadata[$script:MODULE_PAGE_FW_LINK]
     $OldHelpVersion = $Metadata[$script:MODULE_PAGE_HELP_VERSION]
     $AdditionalLocale = $Metadata[$script:MODULE_PAGE_ADDITIONAL_LOCALE]
-    
+
     if($IncrementHelpVersion)
     {
         #IncrementHelpVersion
@@ -1140,7 +1153,7 @@ function New-ExternalHelpCab
     }
 
     #Create HelpInfo File
-    
+
         #Testing the destination directories, creating if none exists.
         Write-Verbose "Checking the output directory"
         if(-not (Test-Path $OutputFolder))
@@ -1159,11 +1172,11 @@ function New-ExternalHelpCab
         #Setting Cab Directives, make a cab is turned on, compression is turned on
         Write-Verbose "Creating Cab File"
         $DirectiveFile = "dir.dff"
-        New-Item -ItemType File -Name $DirectiveFile -Force |Out-Null   
+        New-Item -ItemType File -Name $DirectiveFile -Force |Out-Null
         Add-Content $DirectiveFile ".Set Cabinet=on"
         Add-Content $DirectiveFile ".Set Compress=on"
-        
-        #Creates an entry in the cab directive file for each file in the source directory (uses FullName to get fuly qualified file path and name)     
+
+        #Creates an entry in the cab directive file for each file in the source directory (uses FullName to get fuly qualified file path and name)
         foreach($file in Get-ChildItem -Path $CabFilesFolder -File)
         {
             Add-Content $DirectiveFile ("'" + ($file).FullName +"'" )
@@ -1185,7 +1198,7 @@ function New-ExternalHelpCab
         Remove-Item $DirectiveFile -ErrorAction SilentlyContinue
         Remove-Item -Path "disk1" -Recurse -ErrorAction SilentlyContinue
 
-        #Create the HelpInfo Xml 
+        #Create the HelpInfo Xml
         MakeHelpInfoXml -ModuleName $ModuleName -GUID $Guid -HelpCulture $Locale -HelpVersion $HelpVersion -URI $FwLink -OutputFolder $OutputFolder
 
         if($AdditionalLocale)
@@ -1362,8 +1375,8 @@ function GetInfoCallback
         [string]$LogPath,
         [switch]$Append
     )
-    
-    if ($LogPath) 
+
+    if ($LogPath)
     {
         if (-not (Test-Path $LogPath -PathType Leaf))
         {
@@ -1386,7 +1399,7 @@ function GetInfoCallback
             Add-Content -Path $LogPath -value $message -Encoding UTF8
         }
     }
-    else 
+    else
     {
         $infoCallback = {
             param([string]$message)
@@ -1402,7 +1415,7 @@ function GetWarningCallback
         param([string]$message)
         Write-Warning $message
     }
-    
+
     return $warningCallback
 }
 
@@ -1446,10 +1459,32 @@ function GetAboutTopicsFromPath
         [string[]]$MarkDownFilesAlreadyFound
     )
 
-    
+    function ConfirmAboutBySecondHeaderText
+    {
+        param(
+            [string]$AboutFilePath
+        )
+
+        $MdContent = Get-Content -raw $AboutFilePath
+        $MdParser = new-object -TypeName 'Markdown.MAML.Parser.MarkdownParser' `
+                                -ArgumentList { param([int]$current, [int]$all)
+                                Write-Progress -Activity "Parsing markdown" -status "Progress:" -percentcomplete ($current/$all*100)}
+        $MdObject = $MdParser.ParseString($MdContent)
+
+        if($MdObject.Children[1].text.length -gt 5)
+        {
+            if($MdObject.Children[1].text.substring(0,5).ToUpper() -eq "ABOUT")
+            {
+                return $true
+            }
+        }
+
+        return $false
+    }
+
     $AboutMarkDownFiles = @()
-    
-    if ($Path) { 
+
+    if ($Path) {
         $Path | ForEach-Object {
             if (Test-Path -PathType Leaf $_)
             {
@@ -1469,7 +1504,7 @@ function GetAboutTopicsFromPath
                     $AboutMarkdownFiles += Get-ChildItem $_ -Filter '*.md' | Where-Object { (IsAboutTopic -Path $_.FullName) }
                 }
             }
-            else 
+            else
             {
                 Write-Error "$_ about file not found"
             }
@@ -1523,7 +1558,7 @@ function GetMarkdownFilesFromPath
         [Parameter(Mandatory=$true)]
         [SupportsWildcards()]
         [string[]]$Path,
-        
+
         [switch]$IncludeModulePage
     )
 
@@ -1622,7 +1657,7 @@ function MakeHelpInfoXml
 
 
     )
-    
+
     $HelpInfoFileNme = $ModuleName + "_" + $GUID + "_HelpInfo.xml"
     $OutputFullPath = Join-Path $OutputFolder $HelpInfoFileNme
 
@@ -1672,7 +1707,7 @@ function MakeHelpInfoXml
         $ExistingCultures = @{}
         foreach($Culture in $HelpInfoContent.HelpInfo.SupportedUICultures.UICulture)
         {
-            $ExistingCultures.Add($Culture.UICultureName, $Culture.UICultureVersion) 
+            $ExistingCultures.Add($Culture.UICultureName, $Culture.UICultureVersion)
         }
 
         #If culture exists update version, if not, add culture and version
@@ -1692,8 +1727,8 @@ function MakeHelpInfoXml
         for($i=0;$i -lt $ExistingCultures.Count; $i++)
         {
             $HelpUICultureNode = $xml.CreateElement("UICulture",$ns)
-    
-        
+
+
             $HelpUICultureNameNode = $xml.CreateElement("UICultureName",$ns)
             $HelpUICultureNameNode.InnerText = $cultureNames[$i].Name
             $HelpUICultureNode.AppendChild($HelpUICultureNameNode)
@@ -1712,9 +1747,9 @@ function MakeHelpInfoXml
     if(!(Test-Path $OutputFullPath))
     {
         New-Item -Path $OutputFolder -ItemType File -Name $HelpInfoFileNme
-        
+
     }
-    
+
     $HelpInfoContent.Save((Get-ChildItem $OutputFullPath).FullName)
 
 }
@@ -1733,15 +1768,15 @@ function GetHelpFileName
             {
                 return (Split-Path -Leaf $CommandInfo.HelpFile)
             }
-            else 
+            else
             {
-                return $CommandInfo.HelpFile   
+                return $CommandInfo.HelpFile
             }
         }
 
         # overwise, lets guess it
-        $module = @($CommandInfo.Module) + ($CommandInfo.Module.NestedModules) | 
-            Where-Object {$_.ModuleType -ne 'Manifest'} | 
+        $module = @($CommandInfo.Module) + ($CommandInfo.Module.NestedModules) |
+            Where-Object {$_.ModuleType -ne 'Manifest'} |
             Where-Object {$_.ExportedCommands.Keys -contains $CommandInfo.Name}
 
         if (-not $module)
@@ -1766,7 +1801,7 @@ function GetHelpFileName
                 $fileName = $moduleItem.Name
             }
         }
-        else 
+        else
         {
             # if it's something like Dynamic module,
             # we  guess the desired help file name based on the module name
@@ -1779,7 +1814,7 @@ function GetHelpFileName
 
 function MySetContent
 {
-    [OutputType([System.IO.FileInfo])]        
+    [OutputType([System.IO.FileInfo])]
     param(
         [Parameter(Mandatory=$true)]
         [string]$Path,
@@ -1804,10 +1839,10 @@ function MySetContent
             return
         }
     }
-    else 
+    else
     {
         $dir = Split-Path $Path
-        if ($dir) 
+        if ($dir)
         {
             $Null = New-Item -Type Directory $dir -ErrorAction SilentlyContinue;
         }
@@ -1902,7 +1937,7 @@ function NewModuleLandingPage
                 $OldLandingPageContent = Get-Content -Raw $LandingPagePath
                 $OldMetaData = Get-MarkdownMetadata -Markdown $OldLandingPageContent
                 $ModuleGuid = $OldMetaData["Module Guid"]
-                $FwLink = $OldMetaData["Download Help Link"] 
+                $FwLink = $OldMetaData["Download Help Link"]
                 $Version = $OldMetaData["Help Version"]
                 $Locale = $OldMetaData["Locale"]
 
@@ -1923,7 +1958,7 @@ function NewModuleLandingPage
                     }
                 }
             }
-            else 
+            else
             {
                 $ModuleGuid = "{{ Update Module Guid }}"
                 $FwLink = "{{ Update Download Link }}"
@@ -1938,7 +1973,7 @@ function NewModuleLandingPage
         $Content += "---`r`n`r`n"
         $Content += "# $ModuleName Module`r`n## Description`r`n"
         $Content += "$Description`r`n`r`n## $ModuleName Cmdlets`r`n"
- 
+
         if($RefreshModulePage)
         {
             $Module | ForEach-Object {
@@ -1947,19 +1982,19 @@ function NewModuleLandingPage
                 {
                     $Content += "### [" + $command.Name + "](" + $command.Name + ".md)`r`n{{Manually Enter " + $command.Name + " Description Here}}`r`n`r`n"
                 }
-                else 
+                else
                 {
-                    $Content += "### [" + $command.Name + "](" + $command.Name + ".md)`r`n" + $command.Synopsis + "`r`n`r`n"    
+                    $Content += "### [" + $command.Name + "](" + $command.Name + ".md)`r`n" + $command.Synopsis + "`r`n`r`n"
                 }
             }
         }
-        else 
+        else
         {
             $CmdletNames | ForEach-Object {
                 $Content += "### [" + $_ + "](" + $_ + ".md)`r`n{{Manually Enter $_ Description Here}}`r`n`r`n"
             }
         }
-        
+
         MySetContent -Path $LandingPagePath -value $Content -Encoding $Encoding -Force:$Force # yield
     }
 
@@ -1971,11 +2006,11 @@ function ConvertMamlModelToMarkdown
         [ValidateNotNullOrEmpty()]
         [Parameter(Mandatory=$true)]
         [Markdown.MAML.Model.MAML.MamlCommand]$mamlCommand,
-        
+
         [hashtable]$metadata,
 
         [switch]$NoMetadata,
-        
+
         [switch]$PreserveFormatting
     )
 
@@ -2063,26 +2098,222 @@ function GetCommands
         [Parameter(Mandatory=$true)]
         [string]$Module,
         # return names, instead of objects
-        [switch]$AsNames
+        [switch]$AsNames,
+        # use Session for remoting support
+        [System.Management.Automation.Runspaces.PSSession]$Session
     )
 
-    # Get-Module doesn't know about Microsoft.PowerShell.Core, so we don't use (Get-Module).ExportedCommands
+    process {
+        # Get-Module doesn't know about Microsoft.PowerShell.Core, so we don't use (Get-Module).ExportedCommands
 
-    # We use: & (dummy module) {...} syntax to workaround
-    # the case `GetMamlObject -Module platyPS`
-    # because in this case, we are in the module context and Get-Command returns all commands,
-    # not only exported ones.
-    $commands = & (New-Module {}) ([scriptblock]::Create("Get-Command -Module '$Module'")) | 
-        Where-Object {$_.CommandType -ne 'Alias'}  # we don't want aliases in the markdown output for a module
-    
-    if ($AsNames)
-    {
-        $commands.Name
+        # We use: & (dummy module) {...} syntax to workaround
+        # the case `GetMamlObject -Module platyPS`
+        # because in this case, we are in the module context and Get-Command returns all commands,
+        # not only exported ones.
+        $commands = & (New-Module {}) ([scriptblock]::Create("Get-Command -Module '$Module'")) |
+            Where-Object {$_.CommandType -ne 'Alias'}  # we don't want aliases in the markdown output for a module
+
+        if ($AsNames)
+        {
+            $commands.Name
+        }
+        else
+        {
+            if ($Session) {
+                $commands.Name | ForEach-Object {
+                    # yeild
+                    MyGetCommand -Cmdlet $_ -Session $Session
+                }
+            } else {
+                $commands
+            }
+        }
     }
-    else 
-    {
-        $commands
+}
+
+<#
+    Get a compact string representation from TypeInfo or TypeInfo-like object
+
+    The typeObjectHash api is provided for the remoting support.
+    We use two different parameter sets ensure the tupe of -TypeObject
+#>
+function GetTypeString
+{
+    param(
+        [Parameter(ValueFromPipeline=$true, ParameterSetName='typeObject')]
+        [System.Reflection.TypeInfo]
+        $TypeObject,
+
+        [Parameter(ValueFromPipeline=$true, ParameterSetName='typeObjectHash')]
+        [PsObject]
+        $TypeObjectHash
+    )
+
+    if ($TypeObject) {
+        $TypeObjectHash = $TypeObject
     }
+
+    # special case for nullable value types
+    if ($TypeObjectHash.Name -eq 'Nullable`1')
+    {
+        return $TypeObjectHash.GenericTypeArguments.Name
+    }
+
+    if ($TypeObjectHash.IsGenericType)
+    {
+        # keep information about generic parameters
+        return $TypeObjectHash.ToString()
+    }
+
+    return $TypeObjectHash.Name
+}
+
+<#
+    This function proxies Get-Command call.
+
+    In case of the Remote module, we need to jump thru some hoops
+    to get the actual Command object with proper fields.
+    Remoting doesn't properly serialize command objects, so we need to be creative
+    while extracting all the required metadata from the remote session
+    See https://github.com/PowerShell/platyPS/issues/338 for historical context.
+#>
+function MyGetCommand
+{
+    Param(
+        [CmdletBinding()]
+        [parameter(mandatory=$true, parametersetname="Cmdlet")]
+        [string] $Cmdlet,
+        [System.Management.Automation.Runspaces.PSSession]$Session
+    )
+    # if there is no remoting, just proxy to Get-Command
+    if (-not $Session) {
+        return Get-Command $Cmdlet
+    }
+
+    # Here is the structure that we use in ConvertPsObjectsToMamlModel
+    # we fill it up from the remote with some workarounds
+    #
+    # $Command.CommandType
+    # $Command.Name
+    # $Command.ModuleName
+    # $Command.DefaultParameterSet
+    # $Command.CmdletBinding
+    # $ParameterSet in $Command.ParameterSets
+    #     $ParameterSet.Name
+    #     $ParameterSet.IsDefault
+    #     $Parameter in $ParameterSet.Parameters
+    #         $Parameter.Name
+    #         $Parameter.IsMandatory
+    #         $Parameter.Aliases
+    #         $Parameter.HelpMessage
+    #         $Parameter.Type
+    #         $Parameter.ParameterType
+    #            $Parameter.ParameterType.Name
+    #            $Parameter.ParameterType.GenericTypeArguments.Name
+    #            $Parameter.ParameterType.IsGenericType
+    #            $Parameter.ParameterType.ToString() - we get that for free from expand
+
+    # expand first layer of properties
+    function expand([string]$property) {
+        Invoke-Command -Session $Session -ScriptBlock {
+            Get-Command $using:Cmdlet |
+            Select-Object -ExpandProperty $using:property
+        }
+    }
+
+    # This Select-Object -Skip | Select-Object -SkipLast
+    # looks a little crazy, but this is just a workaround for
+    # https://github.com/PowerShell/PowerShell/issues/6979
+    # -First and -Index breaks the subsequent Get-Help calls
+
+    # expand second layer of properties on the selected item
+    function expand2([string]$property1, [int]$num, [int]$totalNum, [string]$property2) {
+        $skipLast = $totalNum - $num - 1
+        Invoke-Command -Session $Session -ScriptBlock {
+            Get-Command $using:Cmdlet |
+            Select-Object -ExpandProperty $using:property1 |
+            Select-Object -Skip $using:num |
+            Select-Object -SkipLast $using:skipLast |
+            Select-Object -ExpandProperty $using:property2
+        }
+    }
+
+    # expand second and 3rd layer of properties on the selected item
+    function expand3(
+        [string]$property1,
+        [int]$num,
+        [int]$totalNum,
+        [string]$property2,
+        [string]$property3
+        ) {
+        $skipLast = $totalNum - $num - 1
+        Invoke-Command -Session $Session -ScriptBlock {
+            Get-Command $using:Cmdlet |
+            Select-Object -ExpandProperty $using:property1 |
+            Select-Object -Skip $using:num |
+            Select-Object -SkipLast $using:skipLast |
+            Select-Object -ExpandProperty $using:property2 |
+            Select-Object -ExpandProperty $using:property3
+        }
+    }
+
+    function local([string]$property) {
+        Get-Command $Cmdlet | select-object -ExpandProperty $property
+    }
+
+    # helper function to fill up the parameters metadata
+    function getParams([int]$num, [int]$totalNum) {
+        # this call we need to fill-up ParameterSets.Parameters.ParameterType with metadata
+        $parameterType = expand3 'ParameterSets' $num $totalNum 'Parameters' 'ParameterType'
+        # this call we need to fill-up ParameterSets.Parameters with metadata
+        $parameters = expand2 'ParameterSets' $num $totalNum 'Parameters'
+        if ($parameters.Length -ne $parameterType.Length) {
+            $errStr = "Metadata for $Cmdlet doesn't match length.`n" +
+            "This should never happen! Please report the issue on https://github.com/PowerShell/platyPS/issues"
+            Write-Error $errStr
+        }
+
+        foreach ($i in 0..($parameters.Length - 1)) {
+            $typeObjectHash = New-Object -TypeName pscustomobject -Property @{
+                Name = $parameterType[$i].Name
+                IsGenericType = $parameterType[$i].IsGenericType
+                # almost .ParameterType.GenericTypeArguments.Name
+                # TODO: doesn't it worth another round-trip to make it more accurate
+                # and query for the Name?
+                GenericTypeArguments = @{ Name = $parameterType[$i].GenericTypeArguments }
+            }
+            Add-Member -Type NoteProperty -InputObject $parameters[$i] -Name 'ParameterTypeName' -Value (GetTypeString -TypeObjectHash $typeObjectHash)
+        }
+        return $parameters
+    }
+
+    # we cannot use the nested properties from this $remote command.
+    # ps remoting doesn't serialize all of them properly.
+    # but we can use the top-level onces
+    $remote = Invoke-Command -Session $Session { Get-Command $using:Cmdlet }
+
+    $psets = expand 'ParameterSets'
+    $psetsArray = @()
+    foreach ($i in 0..($psets.Count - 1)) {
+        $parameters = getParams $i $psets.Count
+        $psetsArray += @(New-Object -TypeName pscustomobject -Property @{
+            Name = $psets[$i].Name
+            IsDefault = $psets[$i].IsDefault
+            Parameters = $parameters
+        })
+    }
+
+    $commandHash = @{
+        Name = $Cmdlet
+        CommandType = $remote.CommandType
+        DefaultParameterSet = $remote.DefaultParameterSet
+        CmdletBinding = $remote.CmdletBinding
+        # for office we cannot get the module name from the remote, grab the local one instead
+        ModuleName = local 'ModuleName'
+        ParameterSets = $psetsArray
+    }
+
+    return New-Object -TypeName pscustomobject -Property $commandHash
 }
 
 function HasModule {
@@ -2100,7 +2331,7 @@ function HasModule {
 }
 
 <#
-    This function prepares help and command object (possibly do mock) 
+    This function prepares help and command object (possibly do mock)
     and passes it to ConvertPsObjectsToMamlModel, then return results
 #>
 function GetMamlObject
@@ -2117,7 +2348,10 @@ function GetMamlObject
         [switch] $ConvertNotesToList,
         [parameter(parametersetname="Maml")]
         [switch] $ConvertDoubleDashLists,
-        [switch] $UseFullTypeName
+        [switch] $UseFullTypeName,
+        [parameter(parametersetname="Cmdlet")]
+        [parameter(parametersetname="Module")]
+        [System.Management.Automation.Runspaces.PSSession]$Session
     )
 
     function CommandHasAutogeneratedSynopsis
@@ -2131,16 +2365,16 @@ function GetMamlObject
     {
         Write-Verbose ("Processing: " + $Cmdlet)
         $Help = Get-Help $Cmdlet
-        $Command = Get-Command $Cmdlet
+        $Command = MyGetCommand -Session $Session -Cmdlet $Cmdlet
         return ConvertPsObjectsToMamlModel -Command $Command -Help $Help -UsePlaceholderForSynopsis:(CommandHasAutogeneratedSynopsis $Help) -UseFullTypeName:$UseFullTypeName
     }
     elseif ($Module)
     {
         Write-Verbose ("Processing: " + $Module)
 
-        $commands = GetCommands $Module
-        foreach ($Command in $commands)
-        {
+        # GetCommands is slow over remoting, piping here is important for good UX
+        GetCommands $Module -Session $Session | ForEach-Object {
+            $Command = $_
             Write-Verbose ("Processing: " + $Command.Name)
             $Help = Get-Help $Command.Name
             # yield
@@ -2154,8 +2388,8 @@ function GetMamlObject
         #Provides Name, CommandType, and Empty Module name from MAML generated module in the $command object.
         #Otherwise loads the results from Get-Command <Cmdlet> into the $command object
 
-        $HelpCollection | ForEach-Object { 
-            
+        $HelpCollection | ForEach-Object {
+
             $Help = $_
 
             $Command = [PsObject] @{
@@ -2163,7 +2397,7 @@ function GetMamlObject
                 CommandType = $Help.Category
                 HelpFile = (Split-Path $MamlFile -Leaf)
             }
-            
+
             # yield
             ConvertPsObjectsToMamlModel -Command $Command -Help $Help -UseHelpForParametersMetadata -UseFullTypeName:$UseFullTypeName
         }
@@ -2183,15 +2417,15 @@ function AddLineBreaksForParagraphs
         $paragraphs = @()
     }
 
-    process 
+    process
     {
         $text = $text.Trim()
         $paragraphs += $text
     }
 
-    end 
+    end
     {
-        $paragraphs -join "`r`n`r`n" 
+        $paragraphs -join "`r`n`r`n"
     }
 }
 
@@ -2289,7 +2523,7 @@ function ConvertPsObjectsToMamlModel
             {
                 return 'True (ByPropertyName, ByValue)'
             }
-            else 
+            else
             {
                 return 'True (ByValue)'
             }
@@ -2300,7 +2534,7 @@ function ConvertPsObjectsToMamlModel
             {
                 return 'True (ByPropertyName)'
             }
-            else 
+            else
             {
                 return 'False'
             }
@@ -2401,13 +2635,13 @@ function ConvertPsObjectsToMamlModel
         $ParameterObject.VariableLength = $HelpEntry.variableLength -eq 'True'
         $ParameterObject.Globbing = $HelpEntry.globbing -eq 'True'
         $ParameterObject.Position = $HelpEntry.position -as [byte]
-        if ($HelpEntry.description) 
+        if ($HelpEntry.description)
         {
             if ($HelpEntry.description.text)
             {
                 $ParameterObject.Description = $HelpEntry.description.text | AddLineBreaksForParagraphs
             }
-            else 
+            else
             {
                 # this case happens, when there is HelpMessage in 'Parameter' attribute,
                 # but there is no maml or comment-based help.
@@ -2433,16 +2667,16 @@ function ConvertPsObjectsToMamlModel
             foreach($Parameter in $ParameterSet.Parameters)
             {
                 # ignore CommonParameters
-                if (isCommonParameterName $Parameter.Name -Workflow:$IsWorkflow) 
-                { 
+                if (isCommonParameterName $Parameter.Name -Workflow:$IsWorkflow)
+                {
                     # but don't ignore them, if they have explicit help entries
                     if ($Help.parameters.parameter | Where-Object {$_.Name -eq $Parameter.Name})
                     {
                     }
-                    else 
+                    else
                     {
                         continue
-                    } 
+                    }
                 }
 
                 $ParameterType = $Parameter.ParameterType;
@@ -2524,7 +2758,7 @@ function ConvertPsObjectsToMamlModel
     {
         FillUpSyntaxFromHelp
     }
-    else 
+    else
     {
         FillUpSyntaxFromCommand
     }
@@ -2542,7 +2776,7 @@ function ConvertPsObjectsToMamlModel
         # default syntax should have a priority
         $syntaxes = @($defaultSyntax) + $MamlCommandObject.Syntax
 
-        foreach ($s in $syntaxes) 
+        foreach ($s in $syntaxes)
         {
             $param = $s.Parameters | Where-Object { $_.Name -eq $Name }
             if ($param)
@@ -2558,17 +2792,17 @@ function ConvertPsObjectsToMamlModel
         # if something changed:
         #   - remove it from it's position
         #   - add to the end
-        
+
         $helpNames = $Help.parameters.parameter.Name
         if (-not $helpNames) { $helpNames = @() }
-        
-        # sort-object unique does case-insensiteve unification 
+
+        # sort-object unique does case-insensiteve unification
         $realNames = $MamlCommandObject.Syntax.Parameters.Name | Sort-object -Unique
         if (-not $realNames) { $realNames = @() }
 
         $realNamesList = New-Object 'System.Collections.Generic.List[string]'
         $realNamesList.AddRange( ( [string[]] $realNames) )
-        
+
         foreach ($name in $helpNames)
         {
             if ($realNamesList.Remove($name))
@@ -2599,12 +2833,12 @@ function ConvertPsObjectsToMamlModel
             }
             $MamlCommandObject.Parameters.Add($Parameter)
         }
-        else 
+        else
         {
-            Write-Warning "[Markdown generation] Could not find parameter object for $ParameterName in command $($Command.Name)"    
+            Write-Warning "[Markdown generation] Could not find parameter object for $ParameterName in command $($Command.Name)"
         }
     }
-    
+
     # Handle CommonParameters, default for MamlCommand is SupportCommonParameters = $true
     if ($Command.CmdletBinding -eq $false)
     {
@@ -2628,9 +2862,9 @@ function validateWorkingProvider
         {
            Set-Location $AvailableFileSystemDrives[0].Root
         }
-        else 
+        else
         {
-             throw 'PlatyPS Cmdlets only work in the FileSystem Provider.' 
+             throw 'PlatyPS Cmdlets only work in the FileSystem Provider.'
         }
     }
 }
@@ -2669,14 +2903,14 @@ function validateWorkingProvider
 if (Get-Command -Name Register-ArgumentCompleter -Module TabExpansionPlusPlus -ErrorAction Ignore) {
     Function ModuleNameCompleter {
         Param (
-            $commandName, 
-            $parameterName, 
-            $wordToComplete, 
-            $commandAst, 
+            $commandName,
+            $parameterName,
+            $wordToComplete,
+            $commandAst,
             $fakeBoundParameter
         )
 
-        Get-Module -Name "$wordToComplete*" | 
+        Get-Module -Name "$wordToComplete*" |
             ForEach-Object {
                 New-CompletionResult -CompletionText $_.Name -ToolTip $_.Description
             }
@@ -2687,20 +2921,20 @@ if (Get-Command -Name Register-ArgumentCompleter -Module TabExpansionPlusPlus -E
 elseif (Get-Command -Name Register-ArgumentCompleter -ErrorAction Ignore) {
     Function ModuleNameCompleter {
         Param (
-            $commandName, 
-            $parameterName, 
-            $wordToComplete, 
-            $commandAst, 
+            $commandName,
+            $parameterName,
+            $wordToComplete,
+            $commandAst,
             $fakeBoundParameter
         )
 
-        Get-Module -Name "$wordToComplete*" | 
+        Get-Module -Name "$wordToComplete*" |
             ForEach-Object {
                 $_.Name
             }
     }
 
     Register-ArgumentCompleter -CommandName New-MarkdownHelp -ParameterName Module -ScriptBlock $Function:ModuleNameCompleter
-} 
+}
 
 #endregion Parameter Auto Completers
