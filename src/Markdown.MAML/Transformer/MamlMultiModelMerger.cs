@@ -48,8 +48,7 @@ namespace Markdown.MAML.Transformer
                 Name = referenceModel.Name,
                 Synopsis = new SectionBody(MergeText(tagsModel.ToDictionary(pair => pair.Key, pair => pair.Value.Synopsis?.Text))),
                 Description = new SectionBody(MergeText(tagsModel.ToDictionary(pair => pair.Key, pair => pair.Value.Description?.Text))),
-                Notes = new SectionBody(MergeText(tagsModel.ToDictionary(pair => pair.Key, pair => pair.Value.Notes?.Text))),
-                Extent = referenceModel.Extent
+                Notes = new SectionBody(MergeText(tagsModel.ToDictionary(pair => pair.Key, pair => pair.Value.Notes?.Text)))
             };
 
             result.Links.AddRange(MergeSimplifiedLinks(tagsModel.Select(pair => pair.Value.Links)));

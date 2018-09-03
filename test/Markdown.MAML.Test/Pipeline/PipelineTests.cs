@@ -60,6 +60,21 @@ namespace Markdown.MAML.Test.Pipeline
 
             command.Parameters.Add(new MamlParameter
             {
+                Name = "skip"
+            });
+
+            command.Parameters.Add(new MamlParameter
+            {
+                Name = "first"
+            });
+
+            command.Parameters.Add(new MamlParameter
+            {
+                Name = "includetotalcount"
+            });
+
+            command.Parameters.Add(new MamlParameter
+            {
                 Name = "Def"
             });
 
@@ -72,6 +87,9 @@ namespace Markdown.MAML.Test.Pipeline
             Assert.Equal("xyz", parameters[2].Name);
             Assert.Equal("Confirm", parameters[3].Name);
             Assert.Equal("whatif", parameters[4].Name);
+            Assert.Equal("includetotalcount", parameters[5].Name);
+            Assert.Equal("skip", parameters[6].Name);
+            Assert.Equal("first", parameters[7].Name);
         }
 
         [Fact]

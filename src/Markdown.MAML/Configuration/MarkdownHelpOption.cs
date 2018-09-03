@@ -71,16 +71,10 @@ namespace Markdown.MAML.Configuration
             return new MarkdownHelpOption(this);
         }
 
-        public MarkdownHelpOption MergeWith(MarkdownHelpOption option)
-        {
-
-            return this;
-        }
-
         public static MarkdownHelpOption FromFile(string path, bool silentlyContinue = false)
         {
             // Ensure that a full path instead of a path relative to PowerShell is used for .NET methods
-            var rootedPath = GetRootedPath(path);
+            var rootedPath = GetYamlPath(path);
 
             // Fallback to defaults even if file does not exist when silentlyContinue is true
             if (!File.Exists(rootedPath))
@@ -115,7 +109,7 @@ namespace Markdown.MAML.Configuration
         /// <param name="hashtable"></param>
         public static implicit operator MarkdownHelpOption(Hashtable hashtable)
         {
-            var option = new MarkdownHelpOption();
+            var option = FromFile(GetWorkingPath(), silentlyContinue: true);
 
             // Build index to allow mapping
             var index = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
@@ -161,6 +155,27 @@ namespace Markdown.MAML.Configuration
             var option = FromFile(path);
 
             return option;
+        }
+
+        public static string GetYamlPath(string path)
+        {
+            var yamlPath = Path.GetFullPath(GetRootedPath(path));
+
+            // Is directory?
+            if (!Directory.Exists(yamlPath))
+            {
+                return yamlPath;
+            }
+
+            var filePath = Path.Combine(yamlPath, ".platyps.yml");
+
+            // If directory, try default .yml then .yaml
+            if (!File.Exists(filePath) && File.Exists(Path.Combine(yamlPath, ".platyps.yaml")))
+            {
+                filePath = Path.Combine(yamlPath, ".platyps.yaml");
+            }
+
+            return filePath;
         }
 
         /// <summary>

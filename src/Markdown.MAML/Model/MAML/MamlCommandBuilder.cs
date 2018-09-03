@@ -96,6 +96,8 @@ namespace Markdown.MAML.Model.MAML
                 FullType = fullType
             };
 
+            // TODO: Default parameter descriptions should be localized.
+
             // we have well-known parameters and can generate a reasonable description for them
             // https://github.com/PowerShell/platyPS/issues/211
             if (string.IsNullOrEmpty(description))
@@ -107,6 +109,18 @@ namespace Markdown.MAML.Model.MAML
                 else if (StringComparer.OrdinalIgnoreCase.Equals(name, "WhatIf"))
                 {
                     parameter.Description = "Shows what would happen if the cmdlet runs. The cmdlet is not run.";
+                }
+                else if (StringComparer.OrdinalIgnoreCase.Equals(name, "IncludeTotalCount"))
+                {
+                    parameter.Description = "Reports the number of objects in the data set (an integer) followed by the objects. If the cmdlet cannot determine the total count, it returns 'Unknown total count'.";
+                }
+                else if (StringComparer.OrdinalIgnoreCase.Equals(name, "Skip"))
+                {
+                    parameter.Description = "Ignores the first 'n' objects and then gets the remaining objects.";
+                }
+                else if (StringComparer.OrdinalIgnoreCase.Equals(name, "First"))
+                {
+                    parameter.Description = "Gets only the first 'n' objects.";
                 }
                 else
                 {

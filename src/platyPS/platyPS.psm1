@@ -323,8 +323,6 @@ function Update-MarkdownHelp
 
         [System.Management.Automation.Runspaces.PSSession]$Session,
 
-        [System.Management.Automation.Runspaces.PSSession]$Session,
-
         [Parameter(Mandatory = $False)]
         [Markdown.MAML.Configuration.MarkdownHelpOption]$Option
     )
@@ -398,11 +396,6 @@ function Update-MarkdownHelp
             # Process the command markdown file
             $oldModel = $readPipeline.Process($file, $Encoding);
 
-            if (!$command) {
-                log -warning  "command $name not found in the session, skipping upgrade for $filePath";
-                return
-            }
-
             # Discover the PS command that matches the name of the stored model
             $name = $oldModel.Name;
             $command = Get-Command -Name $name;
@@ -419,14 +412,14 @@ function Update-MarkdownHelp
             $metadata[$script:MODULE_PAGE_MODULE_NAME] = $reflectionModel.ModuleName
 
             $merger = New-Object Markdown.MAML.Transformer.MamlModelMerger -ArgumentList $infoCallback
-            $newModel = $merger.Merge($reflectionModel, $oldModel);
+            $newModel = $merger.Merge($reflectionModel, $oldModel, $UpdateInputOutput);
 
             # Update command help file
             $newModel.SetMetadata("external help file", (GetHelpFileName $command));
             $newModel.SetMetadata($script:MODULE_PAGE_MODULE_NAME, $reflectionModel.ModuleName);
 
             $md = $writePipeline.Process($newModel);
-            
+
             MySetContent -path $file -value $md -Encoding $Encoding -Force # yield
         }
     }
@@ -1221,14 +1214,14 @@ function New-ExternalHelpCab
 
 function New-MarkdownHelpOption {
 
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Option')]
     [OutputType([Markdown.MAML.Configuration.MarkdownHelpOption])]
     param (
-        [Parameter(Mandatory = $False)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Option')]
         [AllowNull()]
         [Markdown.MAML.Configuration.MarkdownHelpOption]$Option,
 
-        [Parameter(Mandatory = $False)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Path')]
         [PSDefaultValue(Help = '.')]
         [String]$Path = $PWD,
 
@@ -1247,64 +1240,46 @@ function New-MarkdownHelpOption {
 
     process {
 
-        $inFile = $Path;
-        $parentPath = $Path;
-        
         if ($PSBoundParameters.ContainsKey('Path')) {
-
-            Write-Verbose -Message "Attempting to read: $Path";
 
             if (!(Test-Path -Path $Path)) {
                 Write-Error -Message "Failed to read: $Path";
 
                 return;
             }
-        }
-        else {
-            Write-Verbose -Message ("Attempting to read default configuration from: {0}" -f $Path);
 
+            $Path = [Markdown.MAML.Configuration.MarkdownHelpOption]::GetYamlPath($Path);
+            Write-Verbose -Message "Reading configuration from: $Path";
+            $Option = [Markdown.MAML.Configuration.MarkdownHelpOption]::FromFile($Path, $True);
+        }
+        elseif (!$PSBoundParameters.ContainsKey('Option')) {
+            # Generate an oject when path and option are not specified
+            $Path = [Markdown.MAML.Configuration.MarkdownHelpOption]::GetYamlPath($Path);
+            Write-Verbose -Message "Reading default configuration from: $Path";
             $Option = [Markdown.MAML.Configuration.MarkdownHelpOption]::FromFile($Path, $True);
         }
 
-        $inFile = Resolve-Path -Path $inFile;
-
-        if ((Test-Path -Path $inFile -PathType Container)) {
-            $parentPath = Split-Path -Path $inFile -Parent;
-        }
-
-        if ($inFile -notlike "*.yml" -and $inFile -notlike "*.yaml") {
-            if (Test-Path -Path (Join-Path -Path $inFile -ChildPath ".platyps.yml")) {
-                $inFile = Join-Path -Path $inFile -ChildPath ".platyps.yml";
-            }
-            elseif (Test-Path -Path (Join-Path -Path $inFile -ChildPath ".platyps.yaml")) {
-                $inFile = Join-Path -Path $inFile -ChildPath ".platyps.yaml";
-            }
-        }
-
-        $yaml = Get-Content -Path $inFile -Raw;
-        $result = [Markdown.MAML.Configuration.MarkdownHelpOption]::FromYaml($yaml);
-
-        if ($PSBoundParameters.ContainsKey('Option')) {
-            $result = $result.MergeWith($Option);
-        }
-
         if ($PSBoundParameters.ContainsKey('ReadMarkdown')) {
-            $result.Pipeline.ReadMarkdown.AddRange($ReadMarkdown);
+            Write-Verbose -Message "Set ReadMarkdown pipeline hook";
+            $Option.Pipeline.ReadMarkdown.AddRange($ReadMarkdown);
         }
 
         if ($PSBoundParameters.ContainsKey('WriteMarkdown')) {
-            $result.Pipeline.WriteMarkdown.AddRange($WriteMarkdown);
+            Write-Verbose -Message "Set WriteMarkdown pipeline hook";
+            $Option.Pipeline.WriteMarkdown.AddRange($WriteMarkdown);
         }
 
         if ($PSBoundParameters.ContainsKey('ReadCommand')) {
-            $result.Pipeline.ReadCommand.AddRange($ReadCommand);
+            Write-Verbose -Message "Set ReadCommand pipeline hook";
+            $Option.Pipeline.ReadCommand.AddRange($ReadCommand);
         }
 
         if ($PSBoundParameters.ContainsKey('WriteCommand')) {
-            $result.Pipeline.WriteCommand.AddRange($WriteCommand);
+            Write-Verbose -Message "Set WriteCommand pipeline hook";
+            $Option.Pipeline.WriteCommand.AddRange($WriteCommand);
         }
 
-        return $result;
+        return $Option;
     }
 }
 
@@ -1326,24 +1301,18 @@ function Set-MarkdownHelpOption {
             $Option = New-MarkdownHelpOption;
         }
 
-        $optionFile = $Path;
-        $parentPath = $Path;
-
         # Default to .platyps.yml if a directory is used
-        if (Test-Path -Path $optionFile -PathType Container) {
-            $optionFile = Join-Path -Path $optionFile -ChildPath '.platyps.yml';
-        }
-        else {
-            # Get the parent directory instead
-            $parentPath = Split-Path -Path $optionFile -Parent;
-        }
+        $Path = [Markdown.MAML.Configuration.MarkdownHelpOption]::GetYamlPath($Path);
+
+        # Get the parent directory instead
+        $parentPath = Split-Path -Path $Path -Parent;
 
         # Create the parent path if it doesn't exist
         if (!(Test-Path -Path $parentPath)) {
             $Null = New-Item -Path $parentPath -ItemType Directory -Force -WhatIf:$WhatIfPreference;
         }
 
-        MySetContent -Path $optionFile -value ($Option.ToYaml()) -Encoding $Script:UTF8_NO_BOM;
+        MySetContent -Path $Path -value ($Option.ToYaml()) -Encoding $Script:UTF8_NO_BOM;
     }
 }
 
@@ -1384,79 +1353,6 @@ function GetApplicableList
     $h = Get-MarkdownMetadata -Path $Path
     if ($h -and $h[$script:APPLICABLE_YAML_HEADER]) {
         return $h[$script:APPLICABLE_YAML_HEADER].Split(',').Trim()
-    }
-}
-
-function SortParamsAlphabetically
-{
-    param(
-        [Parameter(Mandatory=$true)]
-        $MamlCommandObject
-    )
-
-    # sort parameters alphabetically with minor exceptions
-    # https://github.com/PowerShell/platyPS/issues/142
-    $confirm = $MamlCommandObject.Parameters | Where-Object { $_.Name -eq 'Confirm' }
-    $whatif = $MamlCommandObject.Parameters | Where-Object { $_.Name -eq 'WhatIf' }
-    $includeTotalCount = $MamlCommandObject.Parameters | Where-Object { $_.Name -eq 'IncludeTotalCount' }
-    $skip = $MamlCommandObject.Parameters | Where-Object { $_.Name -eq 'Skip' }
-    $first = $MamlCommandObject.Parameters | Where-Object { $_.Name -eq 'First' }
-
-    if ($confirm)
-    {
-        $MamlCommandObject.Parameters.Remove($confirm) > $null
-    }
-
-    if ($whatif)
-    {
-        $MamlCommandObject.Parameters.Remove($whatif) > $null
-    }
-
-    if ($includeTotalCount)
-    {
-        $MamlCommandObject.Parameters.Remove($includeTotalCount) > $null
-    }
-
-    if ($skip)
-    {
-        $MamlCommandObject.Parameters.Remove($skip) > $null
-    }
-
-    if ($first)
-    {
-        $MamlCommandObject.Parameters.Remove($first) > $null
-    }
-
-    $sortedParams = $MamlCommandObject.Parameters | Sort-Object -Property Name
-    $MamlCommandObject.Parameters.Clear()
-
-    $sortedParams | ForEach-Object {
-        $MamlCommandObject.Parameters.Add($_)
-    }
-
-    if ($confirm)
-    {
-        $MamlCommandObject.Parameters.Add($confirm)
-    }
-
-    if ($whatif)
-    {
-        $MamlCommandObject.Parameters.Add($whatif)
-    }
-
-    if ($includeTotalCount)
-    {
-        $MamlCommandObject.Parameters.Add($includeTotalCount)
-    }
-
-    if ($skip)
-    {
-        $MamlCommandObject.Parameters.Add($skip)
-    }
-
-    if ($first)
-    {
-        $MamlCommandObject.Parameters.Add($first)
     }
 }
 
@@ -1666,17 +1562,13 @@ function GetMarkdownFilesFromPath
 
     $aboutFilePrefixPattern = 'about_*';
 
-    return ($Path | ForEach-Object {
-        if (Test-Path -PathType Leaf -Path $_)
-        {
-            if ((Split-Path -Leaf $_) -notlike $aboutFilePrefixPattern)
-            {
+    return ($Path | ForEach-Object -Process {
+        if (Test-Path -PathType Leaf -Path $_) {
+            if ((Split-Path -Leaf $_) -notlike $aboutFilePrefixPattern) {
                 Get-ChildItem -Path $_;
             }
         }
-    }
-
-    return $MarkdownFiles
+    })
 }
 
 function GetMamlModelImpl

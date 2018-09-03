@@ -1,6 +1,8 @@
-﻿using Markdown.MAML.Model.MAML;
+﻿using Markdown.MAML.Configuration;
+using Markdown.MAML.Model.MAML;
 using Markdown.MAML.Model.Markdown;
 using Markdown.MAML.Pipeline;
+using Markdown.MAML.Renderer;
 using Markdown.MAML.Transformer;
 using System.Collections.Generic;
 using System.Linq;
@@ -434,7 +436,7 @@ Third Command
             Assert.Equal("Example 1", result.Examples.ElementAt(0).Title);
 
             // next render it as markdown and make sure that we don't crash
-            var renderer = new MarkdownV2Renderer(MAML.Parser.ParserMode.FormattingPreserve);
+            var renderer = new MarkdownV2Renderer(MAML.Parser.ParserMode.FormattingPreserve, MarkdownOption.DEFAULT_SYNTAX_WIDTH);
             string markdown = renderer.MamlModelToString(result, true);
         }
 
@@ -471,7 +473,7 @@ Third Command
             Assert.Equal("E3 (Second)", result.Examples.ElementAt(2).Title);
 
             // next render it as markdown and make sure that we don't crash
-            var renderer = new MarkdownV2Renderer(MAML.Parser.ParserMode.FormattingPreserve);
+            var renderer = new MarkdownV2Renderer(MAML.Parser.ParserMode.FormattingPreserve, MarkdownOption.DEFAULT_SYNTAX_WIDTH);
             string markdown = renderer.MamlModelToString(result, true);
         }
 
@@ -510,7 +512,7 @@ Third Command
             Assert.Equal("Hello world", result.Examples.ElementAt(1).Remarks);
 
             // next render it as markdown and make sure that we don't crash
-            var renderer = new MarkdownV2Renderer(MAML.Parser.ParserMode.FormattingPreserve);
+            var renderer = new MarkdownV2Renderer(MAML.Parser.ParserMode.FormattingPreserve, MarkdownOption.DEFAULT_SYNTAX_WIDTH);
             string markdown = renderer.MamlModelToString(result, true);
         }
 
