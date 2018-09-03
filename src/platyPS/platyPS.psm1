@@ -1252,7 +1252,7 @@ function New-MarkdownHelpOption {
             Write-Verbose -Message "Reading configuration from: $Path";
             $Option = [Markdown.MAML.Configuration.MarkdownHelpOption]::FromFile($Path, $True);
         }
-        elseif (!$PSBoundParameters.ContainsKey('Option')) {
+        elseif (!$PSBoundParameters.ContainsKey('Option') -or $Null -eq $Option) {
             # Generate an oject when path and option are not specified
             $Path = [Markdown.MAML.Configuration.MarkdownHelpOption]::GetYamlPath($Path);
             Write-Verbose -Message "Reading default configuration from: $Path";

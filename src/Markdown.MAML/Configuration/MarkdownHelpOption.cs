@@ -20,7 +20,6 @@ namespace Markdown.MAML.Configuration
         {
             // Set defaults
             Markdown = new MarkdownOption();
-
             Pipeline = new PipelineHook();
         }
 
