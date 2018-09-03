@@ -293,8 +293,8 @@ function Get-MarkdownMetadata
         }
         # FromFile
         else {
-            return GetMarkdownFilesFromPath -Path $Path -IncludeModulePage | ForEach-Object -Process {
-                $pipeline.Process($_.FullName, [System.Text.Encoding]::ASCII); # yield
+            return GetMarkdownFile -Path $Path -IncludeModulePage | ForEach-Object -Process {
+                $pipeline.Process($_, [System.Text.Encoding]::ASCII); # yield
             }
         }
     }

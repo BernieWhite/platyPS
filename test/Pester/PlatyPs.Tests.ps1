@@ -3,7 +3,11 @@ $ErrorActionPreference = 'Stop'
 
 $root = (Resolve-Path $PSScriptRoot\..\..).Path
 $outFolder = Join-Path -Path $root -ChildPath out;
-$testPath = Join-Path -Path $outFolder -ChildPath tests/PlatyPS.Common;
+$testFolder = Join-Path -Path $outFolder -ChildPath tests/PlatyPS.Common;
+
+# Clean path
+Remove-Item -Path $testFolder -Force -Recurse -Confirm:$False -ErrorAction SilentlyContinue;
+$Null = New-Item -Path $testFolder -ItemType Directory -Force;
 
 Import-Module $outFolder\platyPS -Force
 $MyIsLinux = Get-Variable -Name IsLinux -ValueOnly -ErrorAction SilentlyContinue
@@ -843,9 +847,9 @@ this text would be ignored
 }
 
 Describe 'Update-MarkdownHelp with New-MarkdownHelp inlined functionality' {
-    $OutputFolder = 'TestDrive:\update-new'
+    $testPath = Join-Path -Path $testFolder -ChildPath MarkdownHelpOption;
 
-    $originalFiles = New-MarkdownHelp -Module platyPS -OutputFolder $OutputFolder -WithModulePage
+    $originalFiles = New-MarkdownHelp -Module platyPS -OutputFolder $testPath -WithModulePage
 
     It 'creates markdown in the first place' {
         $originalFiles | Should Not Be $null
@@ -853,7 +857,7 @@ Describe 'Update-MarkdownHelp with New-MarkdownHelp inlined functionality' {
     }
 
     It 'updates markdown and creates removed files again' {
-        $updatedFiles = Update-MarkdownHelpModule -Path $OutputFolder
+        $updatedFiles = Update-MarkdownHelpModule -Path $testPath
         ($updatedFiles | Measure-Object).Count | Should Be (($originalFiles | Measure-Object).Count - 1)
     }
 }
