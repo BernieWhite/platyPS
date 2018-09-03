@@ -117,6 +117,7 @@ $option = New-MarkdownHelpOption -WriteMarkdown {
 Extensibility in PlatyPS is currently experimental, so please provide us feedback at https://github.com/PowerShell/PlatyPS/issues.
 
 ## SEE ALSO
+
 {{ See also placeholder }}
 
 {{ You can also list related articles, blogs, and video URLs. }}

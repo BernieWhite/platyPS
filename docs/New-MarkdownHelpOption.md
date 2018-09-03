@@ -8,6 +8,7 @@ schema: 2.0.0
 # New-MarkdownHelpOption
 
 ## SYNOPSIS
+
 Creates options to customize help workflow.
 
 ## SYNTAX
@@ -19,11 +20,13 @@ New-MarkdownHelpOption [[-Option] <MarkdownHelpOption>] [[-Path] <String>] [[-Re
 ```
 
 ## DESCRIPTION
+
 The **New-MarkdownHelpOption** cmdlet creates an options object that can be passed to markdown help cmdlets to customize PlatyPS behaviour.
 
 ## EXAMPLES
 
 ### Example 1
+
 ```powershell
 PS C:\> $option = New-MarkdownHelpOption -WriteMarkdown {
   param($markdown, $path)
@@ -40,7 +43,8 @@ PS C:\> Update-MarkdownHelp .\docs\ -Option $option;
 ## PARAMETERS
 
 ### -Option
-An existing option object.
+
+An existing object or a hashtable of options. For more information see [about_platyPS_Options].
 
 ```yaml
 Type: MarkdownHelpOption
@@ -55,6 +59,7 @@ Accept wildcard characters: False
 ```
 
 ### -Path
+
 {{Fill Path Description}}
 
 ```yaml
@@ -70,6 +75,7 @@ Accept wildcard characters: False
 ```
 
 ### -ReadCommand
+
 One or more script blocks delegates to use when ReadCommand is called. For detailed examples see [about_platyPS_Extensibility].
 
 ```yaml
@@ -85,6 +91,7 @@ Accept wildcard characters: False
 ```
 
 ### -ReadMarkdown
+
 One or more script blocks delegates to use when ReadMarkdown is called. For detailed examples see [about_platyPS_Extensibility].
 
 ```yaml
@@ -100,6 +107,7 @@ Accept wildcard characters: False
 ```
 
 ### -WriteCommand
+
 One or more script blocks delegates to use when WriteCommand is called. For detailed examples see [about_platyPS_Extensibility].
 
 ```yaml
@@ -115,6 +123,7 @@ Accept wildcard characters: False
 ```
 
 ### -WriteMarkdown
+
 One or more script blocks delegates to use when WriteMarkdown is called. For detailed examples see [about_platyPS_Extensibility].
 
 ```yaml
@@ -130,6 +139,7 @@ Accept wildcard characters: False
 ```
 
 ### CommonParameters
+
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see about_CommonParameters (http://go.microsoft.com/fwlink/?LinkID=113216).
 
 ## INPUTS
