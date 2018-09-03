@@ -55,7 +55,6 @@ For more information, see [Character Encoding in the .NET Framework](https://msd
 For example, you can control Byte Order Mark (BOM) preferences.
 For more information, see [Using PowerShell to write a file in UTF-8 without the BOM](http://stackoverflow.com/questions/5596982/using-powershell-to-write-a-file-in-utf-8-without-the-bom) at the Stack Overflow community.
 
-
 ```yaml
 Type: Encoding
 Parameter Sets: (All)
@@ -71,7 +70,6 @@ Accept wildcard characters: False
 ### -LogAppend
 Indicates that this cmdlet appends information to the log instead overwriting it.
 
-
 ```yaml
 Type: SwitchParameter
 Parameter Sets: (All)
@@ -85,10 +83,9 @@ Accept wildcard characters: False
 ```
 
 ### -LogPath
-Specifies a file path for log information. 
-The cmdlet writes the VERBOSE stream to the log. 
-If you specify the *Verbose* parameter, this cmdlet also writes that information to the console. 
-
+Specifies a file path for log information.
+The cmdlet writes the VERBOSE stream to the log.
+If you specify the *Verbose* parameter, this cmdlet also writes that information to the console.
 
 ```yaml
 Type: String
@@ -104,8 +101,7 @@ Accept wildcard characters: False
 
 ### -Path
 Specifies an array of paths of markdown folders to update.
-The folder must contain a module page from which this cmdlet can get the module name. 
-
+The folder must contain a module page from which this cmdlet can get the module name.
 
 ```yaml
 Type: String[]
@@ -136,7 +132,7 @@ Accept wildcard characters: False
 
 ### -AlphabeticParamsOrder
 Order parameters alphabetically by name in PARAMETERS section.
-There are 5 exceptions: -Confirm, -WhatIf, -IncludeTotalCount, -Skip, and -First parameters will be the last. 
+There are 5 exceptions: -Confirm, -WhatIf, -IncludeTotalCount, -Skip, and -First parameters will be the last.
 These parameters are common and hence have well-defined behavior.
 
 ```yaml
@@ -204,12 +200,12 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### System.String[]
-You can pipe an array of paths to this cmdlet. 
+You can pipe an array of paths to this cmdlet.
 
 ## OUTPUTS
 
 ### System.IO.FileInfo[]
-This cmdlet returns a **FileInfo[]** object for updated and new files. 
+This cmdlet returns a **FileInfo[]** object for updated and new files.
 
 ## NOTES
 
