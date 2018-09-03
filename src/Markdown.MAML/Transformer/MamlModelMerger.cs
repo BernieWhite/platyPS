@@ -285,6 +285,4 @@ namespace Markdown.MAML.Transformer
             }
         }
     }
-
-
 }

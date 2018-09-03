@@ -13,8 +13,9 @@ Creates external help file based on markdown supported by PlatyPS.
 ## SYNTAX
 
 ```
-New-ExternalHelp -Path <String[]> -OutputPath <String> [-ApplicableTag <String[]>] [-Encoding <Encoding>]
- [-MaxAboutWidth <Int32>] [-ErrorLogFile <String>] [-Force] [-ShowProgress] [<CommonParameters>]
+New-ExternalHelp [-Path] <String[]> -OutputPath <String> [-ApplicableTag <String[]>] [-Encoding <Encoding>]
+ [-MaxAboutWidth <Int32>] [-ErrorLogFile <String>] [-Force] [-ShowProgress] [-Option <MarkdownHelpOption>]
+ [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -221,13 +222,12 @@ Accept wildcard characters: False
 ```
 
 ### -Option
-
 Additional options that customize markdown updates.
 A `MarkdownHelpOption` can be created by using the `New-MarkdownHelpOption` cmdlet.
 Alternatively a hashtable or path to YAML file can be specified with options.
 
 ```yaml
-Type: SwitchParameter
+Type: MarkdownHelpOption
 Parameter Sets: (All)
 Aliases:
 
@@ -258,4 +258,3 @@ This cmdlet returns a **FileInfo[]** object for created files.
 [PowerShell V2 External MAML Help](https://blogs.msdn.microsoft.com/powershell/2008/12/24/powershell-v2-external-maml-help/)
 
 [Schema](https://github.com/PowerShell/platyPS/blob/master/platyPS.schema.md)
-

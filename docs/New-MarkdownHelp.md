@@ -16,14 +16,15 @@ Creates help in markdown format.
 ```
 New-MarkdownHelp -Module <String[]> [-Session <PSSession>] [-Force] [-AlphabeticParamsOrder]
  [-Metadata <Hashtable>] -OutputFolder <String> [-NoMetadata] [-UseFullTypeName] [-Encoding <Encoding>]
- [-WithModulePage] [-Locale <String>] [-HelpVersion <String>] [-FwLink <String>] [<CommonParameters>]
+ [-WithModulePage] [-Locale <String>] [-HelpVersion <String>] [-FwLink <String>] [-Option <MarkdownHelpOption>]
+ [<CommonParameters>]
 ```
 
 ### FromCommand
 ```
 New-MarkdownHelp -Command <String[]> [-Session <PSSession>] [-Force] [-AlphabeticParamsOrder]
  [-Metadata <Hashtable>] [-OnlineVersionUrl <String>] -OutputFolder <String> [-NoMetadata] [-UseFullTypeName]
- [-Encoding <Encoding>] [<CommonParameters>]
+ [-Encoding <Encoding>] [-Option <MarkdownHelpOption>] [<CommonParameters>]
 ```
 
 ### FromMaml
@@ -461,14 +462,13 @@ Accept wildcard characters: False
 ```
 
 ### -Option
-
 Additional options that customize markdown updates.
 A `MarkdownHelpOption` can be created by using the `New-MarkdownHelpOption` cmdlet.
 Alternatively a hashtable or path to YAML file can be specified with options.
 
 ```yaml
-Type: PSSession
-Parameter Sets: FromModule, FromCommand
+Type: MarkdownHelpOption
+Parameter Sets: (All)
 Aliases:
 
 Required: False
@@ -499,4 +499,3 @@ This cmdlet returns a **FileInfo[]** object for created files.
 [Character Encoding in the .NET Framework](https://msdn.microsoft.com/en-us/library/ms404377.aspx)
 
 [Using PowerShell to write a file in UTF-8 without the BOM](http://stackoverflow.com/questions/5596982/using-powershell-to-write-a-file-in-utf-8-without-the-bom)
-

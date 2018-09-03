@@ -906,7 +906,11 @@ And [hyper](http://link.com).
     function global:Get-MyCoolStuff
     {
         param(
+            [Parameter(Position = 0)]
+            [PSDefaultValue(Help = 'Foo')]
             [string]$Foo,
+            [Parameter(Mandatory = $False)]
+            [SupportsWildcards()]
             [string]$Bar
         )
     }
@@ -927,6 +931,25 @@ And [hyper](http://link.com).
         $names[0] | Should Be 'Bar'
         $names[1] | Should Be 'Foo'
     }
+
+    It 'has parameters marked as named and positional' {
+        # Check that in the update scenario parameter are positional or named correctly
+        $positions = $help.Parameters.parameter.position
+        ($positions | Measure-Object).Count | Should Be 2
+        $positions[0] | Should be 'named';
+        $positions[1] | Should be '0';
+    }
+
+    It 'has globbing set for Bar' {
+        $globbing = $help.Parameters.parameter | Where-Object { $_.globbing -eq 'true' };
+        ($globbing | Measure-Object).Count | Should Be 1;
+        $globbing[0].name | Should be 'Bar'
+        $globbing[0].globbing | Should be $True;
+    }
+
+    # It 'has a default value set for Foo' {
+
+    # }
 
     It 'preserves hyperlinks' {
         $v2markdown.Contains($newFooDescription) | Should Be $true
@@ -971,7 +994,7 @@ Type: String
 
 '@
         $expectedSyntax = normalizeEnds @'
-Get-MyCoolStuff [[-Foo] <String>] [[-Bar] <String>] [<CommonParameters>]
+Get-MyCoolStuff [[-Foo] <String>] [-Bar <String>] [<CommonParameters>]
 
 '@
         normalizeEnds($v2md | Get-Content | Where-Object {$_.StartsWith('Type: ')} | Out-String) | Should Be $expectedParameters
@@ -989,7 +1012,7 @@ Type: System.String
 
 '@
         $expectedSyntax = normalizeEnds @'
-Get-MyCoolStuff [[-Foo] <String>] [[-Bar] <String>] [<CommonParameters>]
+Get-MyCoolStuff [[-Foo] <String>] [-Bar <String>] [<CommonParameters>]
 
 '@
         normalizeEnds($v3markdown | Where-Object {$_.StartsWith('Type: ')} | Out-String) | Should Be $expectedParameters
@@ -1533,6 +1556,33 @@ Describe 'PlatyPS pipeline' -Tag 'pipeline' {
             Update-MarkdownHelp -Path $targetDoc -Option $option -WarningAction SilentlyContinue;
 
             $targetDoc | Should -Not -FileContentMatchMultiline 'AsJob'
+        }
+    }
+}
+
+# These test YAML configuration through .platyPS.yml
+Describe 'PlatyPS configuration' -Tag 'configuration' {
+
+    Context 'Read default YAML from working path' {
+
+        $option = New-MarkdownHelpOption -Option @{ 'markdown.infostring' = 'test-yaml' };
+
+        It 'can read default .platyps.yaml' {
+            $option | Set-MarkdownHelpOption -Path 'TestDrive:\.platyPS.yaml';
+            # Get-Content -Path 'TestDrive:\.platyPS.yaml' -Raw | Should -Match 'infostring: test-yaml';
+
+            $option = New-MarkdownHelpOption -Path 'TestDrive:\' -Verbose;
+            $option.Markdown.InfoString | Should Be 'test-yaml';
+        }
+
+        It 'can read default .platyps.yml' {
+            $option = New-MarkdownHelpOption -Option @{ 'markdown.infostring' = 'test-yml' };
+            $option | Set-MarkdownHelpOption -Path 'TestDrive:\.platyPS.yml';
+            Get-Content -Path 'TestDrive:\.platyPS.yml' -Raw | Should -Match 'infostring: test-yml';
+        }
+
+        It 'can default to .platyps.yml when both .yml and .yaml exist' {
+
         }
     }
 }

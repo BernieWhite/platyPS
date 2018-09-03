@@ -95,21 +95,39 @@ Update-MarkdownHelp .\docs\ -Option $option;
 ```
 
 ## EXAMPLES
-{{ Code or descriptive examples of how to leverage the functions described. }}
+
+The following are examples of how to approach using PlatyPS extensibility to implement some of the most common feature requests.
+
+### Removing PowerShell prefix from code examples
+
+When using ` ```powershell` code blocks for web documentation the standard command-line prefix using in documentation (`PS>` or `PS C:\>`) won't be correct colorized.
+
+```powershell
+# Remove PowerShell prompts
+$option = New-MarkdownHelpOption -WriteMarkdown {
+  param($markdown, $path)
+
+  # Return the new markdown
+  return $markdown.Replace("`r`nPS C:\> ", "`r`n").Replace("`r`nPS> ", "`r`n");
+};
+```
 
 ## NOTE
 
 Extensibility in PlatyPS is currently experimental, so please provide us feedback at https://github.com/PowerShell/PlatyPS/issues.
 
 ## SEE ALSO
+
 {{ See also placeholder }}
 
 {{ You can also list related articles, blogs, and video URLs. }}
 
 ## KEYWORDS
+
 {{List alternate names or titles for this topic that readers might use.}}
 
-- {{ Keyword Placeholder }}
-- {{ Keyword Placeholder }}
-- {{ Keyword Placeholder }}
-- {{ Keyword Placeholder }}
+- New-MarkdownHelpOption
+- WriteMarkdown
+- ReadMarkdown
+- WriteCommand
+- ReadCommand

@@ -52,12 +52,10 @@ function New-MarkdownHelp
         [Parameter(Mandatory=$true, ValueFromPipeline=$true, ParameterSetName="FromModule")]
         [string[]]$Module,
 
-        [Parameter(Mandatory=$true,
-            ParameterSetName="FromCommand")]
+        [Parameter(Mandatory=$true, ParameterSetName="FromCommand")]
         [string[]]$Command,
 
-        [Parameter(Mandatory=$true,
-            ParameterSetName="FromMaml")]
+        [Parameter(Mandatory=$true, ParameterSetName="FromMaml")]
         [string[]]$MamlFile,
 
         [Parameter(ParameterSetName="FromModule")]
@@ -94,26 +92,21 @@ function New-MarkdownHelp
 
         [Parameter(ParameterSetName="FromModule")]
         [Parameter(ParameterSetName="FromMaml")]
-        [string]
-        $Locale = "en-US",
+        [string]$Locale = "en-US",
 
         [Parameter(ParameterSetName="FromModule")]
         [Parameter(ParameterSetName="FromMaml")]
-        [string]
-        $HelpVersion = "{{Please enter version of help manually (X.X.X.X) format}}",
+        [string]$HelpVersion = "{{Please enter version of help manually (X.X.X.X) format}}",
 
         [Parameter(ParameterSetName="FromModule")]
         [Parameter(ParameterSetName="FromMaml")]
-        [string]
-        $FwLink = "{{Please enter FwLink manually}}",
+        [string]$FwLink = "{{Please enter FwLink manually}}",
 
         [Parameter(ParameterSetName="FromMaml")]
-        [string]
-        $ModuleName = "MamlModule",
+        [string]$ModuleName = "MamlModule",
 
         [Parameter(ParameterSetName="FromMaml")]
-        [string]
-        $ModuleGuid = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+        [string]$ModuleGuid = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
 
         [Parameter(Mandatory = $False)]
         [Markdown.MAML.Configuration.MarkdownHelpOption]$Option
@@ -126,16 +119,9 @@ function New-MarkdownHelp
         validateWorkingProvider
         $Null = New-Item -Type Directory $OutputFolder -ErrorAction SilentlyContinue;
 
-        if ($Null -eq $Option) {
-            $Option = New-MarkdownHelpOption;
-        }
-        else {
-            $Option = $Option.Clone();
-        }
-    }
+        $Option = New-MarkdownHelpOption -Option $Option;
 
-    process {
-
+        # Build a ToMarkdown pipeline
         $pipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMarkdown($Option).Configure({
             param ($config)
 
@@ -151,6 +137,9 @@ function New-MarkdownHelp
 
             $config.SetOnlineVersionUrl();
         }).Build();
+    }
+
+    process {
 
         function processMamlObjectToFile {
             param(
@@ -288,25 +277,24 @@ function Get-MarkdownMetadata
         [SupportsWildcards()]
         [string[]]$Path,
 
-        [Parameter(Mandatory=$true,
-            ParameterSetName="FromMarkdownString")]
+        [Parameter(Mandatory=$true, ParameterSetName="FromMarkdownString")]
         [string]$Markdown
     )
 
     begin {
+        # Build a ToMetadata pipeline
         $pipeline = [Markdown.MAML.Pipeline.PipelineBuilder]::ToMetadata();
     }
 
     process
     {
-        if ($PSCmdlet.ParameterSetName -eq 'FromMarkdownString')
-        {
-            return $pipeline.Process($Markdown, '');
+        if ($PSCmdlet.ParameterSetName -eq 'FromMarkdownString') {
+            return $pipeline.Process($Markdown, [String]::Empty);
         }
-        else # FromFile)
-        {
-            return GetMarkdownFilesFromPath -Path $Path -IncludeModulePage | ForEach-Object {
-                $pipeline.Process($_.FullName, [System.Text.Encoding]::ASCII) # yield
+        # FromFile
+        else {
+            return GetMarkdownFilesFromPath -Path $Path -IncludeModulePage | ForEach-Object -Process {
+                $pipeline.Process($_.FullName, [System.Text.Encoding]::ASCII); # yield
             }
         }
     }
@@ -321,8 +309,7 @@ function Update-MarkdownHelp
     [CmdletBinding()]
     [OutputType([System.IO.FileInfo[]])]
     param(
-        [Parameter(Mandatory=$true,
-            ValueFromPipeline=$true)]
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         [SupportsWildcards()]
         [string[]]$Path,
 
@@ -348,12 +335,7 @@ function Update-MarkdownHelp
         $infoCallback = GetInfoCallback $LogPath -Append:$LogAppend
         $targetPaths = New-Object -TypeName 'System.Collections.Generic.List[string]';
 
-        if ($Null -eq $Option) {
-            $Option = New-MarkdownHelpOption;
-        }
-        else {
-            $Option = $Option.Clone();
-        }
+        $Option = New-MarkdownHelpOption -Option $Option;
 
         # Sort by parameter name
         if ($PSBoundParameters.ContainsKey('AlphabeticParamsOrder') -and $AlphabeticParamsOrder) {
@@ -372,8 +354,7 @@ function Update-MarkdownHelp
 
     end
     {
-        function log
-        {
+        function log {
             param(
                 [string]$message,
                 [switch]$warning
@@ -432,7 +413,7 @@ function Update-MarkdownHelp
             }
 
             # update the help file entry in the metadata
-            $metadata = Get-MarkdownMetadata $filePath
+            $metadata = Get-MarkdownMetadata -Path $file
             $metadata["external help file"] = GetHelpFileName $command
             $reflectionModel = GetMamlObject -Session $Session -Cmdlet $name -UseFullTypeName:$UseFullTypeName
             $metadata[$script:MODULE_PAGE_MODULE_NAME] = $reflectionModel.ModuleName
@@ -481,7 +462,7 @@ function Merge-MarkdownHelp
 
     process
     {
-        $MarkdownFiles += GetMarkdownFilesFromPath $Path
+        $MarkdownFiles += GetMarkdownFilesFromPath -Path $Path;
     }
 
     end
@@ -721,7 +702,7 @@ function New-YamlHelp
     }
     process
     {
-        $MarkdownFiles += GetMarkdownFilesFromPath $Path
+        $MarkdownFiles += GetMarkdownFilesFromPath -Path $Path;
     }
     end
     {
@@ -767,6 +748,7 @@ function New-ExternalHelp
 
         [System.Text.Encoding]$Encoding = [System.Text.Encoding]::UTF8,
 
+        # TODO: Help generation does not include this validate range in help
         [ValidateRange(80, [int]::MaxValue)]
         [int]$MaxAboutWidth = 80,
 
@@ -776,8 +758,7 @@ function New-ExternalHelp
         
         [switch]$ShowProgress,
 
-        [switch]$ShowProgress,
-
+        # TODO: Option is created as a positional parameter instead of named
         [Parameter(Mandatory = $False)]
         [Markdown.MAML.Configuration.MarkdownHelpOption]$Option
     )
@@ -789,12 +770,7 @@ function New-ExternalHelp
 
         validateWorkingProvider
 
-        if ($Null -eq $Option) {
-            $Option = New-MarkdownHelpOption;
-        }
-        else {
-            $Option = $Option.Clone();
-        }
+        $Option = New-MarkdownHelpOption -Option $Option;
 
         $MarkdownFiles = @()
         $AboutFiles = @()
@@ -824,7 +800,7 @@ function New-ExternalHelp
 
     process
     {
-        $MarkdownFiles += GetMarkdownFilesFromPath $Path
+        $MarkdownFiles += GetMarkdownFilesFromPath -Path $Path;
 
         if($MarkdownFiles)
         {
@@ -1247,10 +1223,12 @@ function New-MarkdownHelpOption {
     [OutputType([Markdown.MAML.Configuration.MarkdownHelpOption])]
     param (
         [Parameter(Mandatory = $False)]
+        [AllowNull()]
         [Markdown.MAML.Configuration.MarkdownHelpOption]$Option,
 
         [Parameter(Mandatory = $False)]
-        [String]$Path = '.\.platyps.yml',
+        [PSDefaultValue(Help = '.')]
+        [String]$Path = $PWD,
 
         [Parameter(Mandatory = $False)]
         [Markdown.MAML.Configuration.VisitMarkdown[]]$ReadMarkdown,
@@ -1267,42 +1245,103 @@ function New-MarkdownHelpOption {
 
     process {
 
-        if ($PSBoundParameters.ContainsKey('Option')) {
-            $Option = $Option.Clone();
-        }
-        elseif ($PSBoundParameters.ContainsKey('Path')) {
+        $inFile = $Path;
+        $parentPath = $Path;
+        
+        if ($PSBoundParameters.ContainsKey('Path')) {
+
+            Write-Verbose -Message "Attempting to read: $Path";
 
             if (!(Test-Path -Path $Path)) {
-                
+                Write-Error -Message "Failed to read: $Path";
+
+                return;
             }
-
-            $Path = Resolve-Path -Path $Path;
-
-            $Option = [Markdown.MAML.Configuration.MarkdownHelpOption]::FromFile($Path);
         }
         else {
-            Write-Verbose -Message "Attempting to read: $Path";
+            Write-Verbose -Message ("Attempting to read default configuration from: {0}" -f $Path);
 
             $Option = [Markdown.MAML.Configuration.MarkdownHelpOption]::FromFile($Path, $True);
         }
 
+        $inFile = Resolve-Path -Path $inFile;
+
+        if ((Test-Path -Path $inFile -PathType Container)) {
+            $parentPath = Split-Path -Path $inFile -Parent;
+        }
+
+        if ($inFile -notlike "*.yml" -and $inFile -notlike "*.yaml") {
+            if (Test-Path -Path (Join-Path -Path $inFile -ChildPath ".platyps.yml")) {
+                $inFile = Join-Path -Path $inFile -ChildPath ".platyps.yml";
+            }
+            elseif (Test-Path -Path (Join-Path -Path $inFile -ChildPath ".platyps.yaml")) {
+                $inFile = Join-Path -Path $inFile -ChildPath ".platyps.yaml";
+            }
+        }
+
+        $yaml = Get-Content -Path $inFile -Raw;
+        $result = [Markdown.MAML.Configuration.MarkdownHelpOption]::FromYaml($yaml);
+
+        if ($PSBoundParameters.ContainsKey('Option')) {
+            $result = $result.MergeWith($Option);
+        }
+
         if ($PSBoundParameters.ContainsKey('ReadMarkdown')) {
-            $Option.Pipeline.ReadMarkdown.AddRange($ReadMarkdown);
+            $result.Pipeline.ReadMarkdown.AddRange($ReadMarkdown);
         }
 
         if ($PSBoundParameters.ContainsKey('WriteMarkdown')) {
-            $Option.Pipeline.WriteMarkdown.AddRange($WriteMarkdown);
+            $result.Pipeline.WriteMarkdown.AddRange($WriteMarkdown);
         }
 
         if ($PSBoundParameters.ContainsKey('ReadCommand')) {
-            $Option.Pipeline.ReadCommand.AddRange($ReadCommand);
+            $result.Pipeline.ReadCommand.AddRange($ReadCommand);
         }
 
         if ($PSBoundParameters.ContainsKey('WriteCommand')) {
-            $Option.Pipeline.WriteCommand.AddRange($WriteCommand);
+            $result.Pipeline.WriteCommand.AddRange($WriteCommand);
         }
 
-        return $Option;
+        return $result;
+    }
+}
+
+function Set-MarkdownHelpOption {
+
+    [CmdletBinding(SupportsShouldProcess = $True)]
+    param (
+        [Parameter(Mandatory = $False, Position = 0)]
+        [PSDefaultValue(Help = '.')]
+        [String]$Path = $PWD,
+
+        [Parameter(Mandatory = $False, ValueFromPipeline = $True)]
+        [Markdown.MAML.Configuration.MarkdownHelpOption]$Option
+    )
+
+    process {
+        
+        if ($Null -eq $Option) {
+            $Option = New-MarkdownHelpOption;
+        }
+
+        $optionFile = $Path;
+        $parentPath = $Path;
+
+        # Default to .platyps.yml if a directory is used
+        if (Test-Path -Path $optionFile -PathType Container) {
+            $optionFile = Join-Path -Path $optionFile -ChildPath '.platyps.yml';
+        }
+        else {
+            # Get the parent directory instead
+            $parentPath = Split-Path -Path $optionFile -Parent;
+        }
+
+        # Create the parent path if it doesn't exist
+        if (!(Test-Path -Path $parentPath)) {
+            $Null = New-Item -Path $parentPath -ItemType Directory -Force -WhatIf:$WhatIfPreference;
+        }
+
+        MySetContent -Path $optionFile -value ($Option.ToYaml()) -Encoding $Script:UTF8_NO_BOM;
     }
 }
 
@@ -2384,16 +2423,16 @@ function GetMamlObject
     Param(
         [CmdletBinding()]
         [parameter(mandatory=$true, parametersetname="Cmdlet")]
-        [string] $Cmdlet,
+        [string]$Cmdlet,
         [parameter(mandatory=$true, parametersetname="Module")]
-        [string] $Module,
+        [string]$Module,
         [parameter(mandatory=$true, parametersetname="Maml")]
-        [string] $MamlFile,
+        [string]$MamlFile,
         [parameter(parametersetname="Maml")]
-        [switch] $ConvertNotesToList,
+        [switch]$ConvertNotesToList,
         [parameter(parametersetname="Maml")]
-        [switch] $ConvertDoubleDashLists,
-        [switch] $UseFullTypeName,
+        [switch]$ConvertDoubleDashLists,
+        [switch]$UseFullTypeName,
         [parameter(parametersetname="Cmdlet")]
         [parameter(parametersetname="Module")]
         [System.Management.Automation.Runspaces.PSSession]$Session
@@ -2526,8 +2565,7 @@ function ConvertPsObjectsToMamlModel
         [switch]$UseFullTypeName
     )
 
-    function isCommonParameterName
-    {
+    function isCommonParameterName {
         param([string]$parameterName, [switch]$Workflow)
 
         if (@(
@@ -2576,8 +2614,7 @@ function ConvertPsObjectsToMamlModel
         return $false
     }
 
-    function getPipelineValue($Parameter)
-    {
+    function getPipelineValue($Parameter) {
         if ($Parameter.ValueFromPipeline)
         {
             if ($Parameter.ValueFromPipelineByPropertyName)
@@ -2602,8 +2639,29 @@ function ConvertPsObjectsToMamlModel
         }
     }
 
-    function normalizeFirstLatter
-    {
+    function getTypeString {
+        param(
+            [Parameter(ValueFromPipeline=$true)]
+            [System.Reflection.TypeInfo]
+            $typeObject
+        )
+        
+        # special case for nullable value types
+        if ($typeObject.Name -eq 'Nullable`1')
+        {
+            return $typeObject.GenericTypeArguments.Name
+        }
+
+        if ($typeObject.IsGenericType)
+        {
+            # keep information about generic parameters
+            return $typeObject.ToString()
+        }
+
+        return $typeObject.Name
+    }
+
+    function normalizeFirstLatter {
         param(
             [Parameter(ValueFromPipeline=$true)]
             [string]$value
@@ -2668,8 +2726,7 @@ function ConvertPsObjectsToMamlModel
     #Get Syntax
     #region Get the Syntax Parameter Set objects
 
-    function FillUpParameterFromHelp
-    {
+    function FillUpParameterFromHelp {
         param(
             [Parameter(Mandatory=$true)]
             [Markdown.MAML.Model.MAML.MamlParameter]$ParameterObject
@@ -2679,9 +2736,9 @@ function ConvertPsObjectsToMamlModel
 
         $ParameterObject.DefaultValue = $HelpEntry.defaultValue | normalizeFirstLatter
         $ParameterObject.VariableLength = $HelpEntry.variableLength -eq 'True'
-        $ParameterObject.Globbing = $HelpEntry.globbing -eq 'True'
         # $ParameterObject.Position = $HelpEntry.position | normalizeFirstLatter
-        $ParameterObject.Position = $HelpEntry.position -as [byte]
+        # $ParameterObject.Globbing = $HelpEntry.globbing -eq 'True'
+        # $ParameterObject.Position = $HelpEntry.position -as [byte]
         if ($HelpEntry.description)
         {
             if ($HelpEntry.description.text)
@@ -2700,7 +2757,8 @@ function ConvertPsObjectsToMamlModel
             }
         }
 
-        $syntaxParam = $Help.syntax.syntaxItem.parameter |  Where-Object {$_.Name -eq $Parameter.Name} | Select-Object -First 1
+        $syntaxParam = $Help.syntax.syntaxItem.parameter | Where-Object {$_.Name -eq $Parameter.Name} | Select-Object -First 1;
+
         if ($syntaxParam)
         {
             # otherwise we could potentialy get it from Reflection but not doing it for now
@@ -2708,19 +2766,18 @@ function ConvertPsObjectsToMamlModel
         }
     }
 
-    function FillUpSyntaxFromCommand
-    {
-        foreach($ParameterSet in $Command.ParameterSets)
+    function FillUpSyntaxFromCommand {
+        foreach($parameterSet in $Command.ParameterSets)
         {
-            $builder.Syntax($ParameterSet.Name, $ParameterSet.IsDefault);
+            $builder.Syntax($parameterSet.Name, $parameterSet.IsDefault);
 
-            foreach($Parameter in $ParameterSet.Parameters)
+            foreach($parameter in $parameterSet.Parameters)
             {
                 # ignore CommonParameters
-                if (isCommonParameterName $Parameter.Name -Workflow:$IsWorkflow)
+                if (isCommonParameterName $parameter.Name -Workflow:$IsWorkflow)
                 {
                     # but don't ignore them, if they have explicit help entries
-                    if ($Help.parameters.parameter | Where-Object {$_.Name -eq $Parameter.Name})
+                    if ($Help.parameters.parameter | Where-Object {$_.Name -eq $parameter.Name})
                     {
                     }
                     else
@@ -2729,77 +2786,93 @@ function ConvertPsObjectsToMamlModel
                     }
                 }
 
-                $ParameterType = $Parameter.ParameterType;
+                $parameterType = $parameter.ParameterType;
                 
                 # Add a parameter
-                $ParameterObject = $builder.Parameter(
+                $parameterObject = $builder.Parameter(
                     $ParameterSet.Name,
 
                     # Name
-                    $Parameter.Name,
+                    $parameter.Name,
 
                     # Description
-                    $Parameter.HelpMessage,
+                    $parameter.HelpMessage,
 
                     # Required
-                    $Parameter.IsMandatory,
+                    $parameter.IsMandatory,
 
                     # Type
                     (getTypeString -typeObject $ParameterType),
 
-                    # Aliases
-                    $Parameter.Aliases,
-
-                    # Pipeline input
-                    (getPipelineValue $Parameter),
-
-                    # FullType
-                    $ParameterType.ToString()
-                );
-
-                FillUpParameterFromHelp $ParameterObject
-            }
-        }
-    }
-
-    function FillUpSyntaxFromHelp
-    {
-        $ParamSetCount = 0
-        foreach($ParameterSet in $Help.syntax.syntaxItem)
-        {
-            $SyntaxObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlSyntax
-
-            $ParamSetCount++
-            $SyntaxObject.ParameterSetName = $script:SET_NAME_PLACEHOLDER + "_" + $ParamSetCount
-
-            foreach($Parameter in $ParameterSet.Parameter)
-            {
-                $ParameterObject = $builder.Parameter(
-                    $SyntaxObject.ParameterSetName,
-
-                    # Name
-                    $Parameter.Name,
-
-                    # Description
-                    '',
-
-                    # Required
-                    $Parameter.required -eq 'true',
-
-                    # Type
-                    $Parameter.parameterValue,
+                    # Position
+                    $parameter.Position,
 
                     # Aliases
                     $parameter.Aliases,
 
                     # Pipeline input
-                    ($Parameter.pipelineInput | normalizeFirstLatter),
+                    (getPipelineValue $parameter),
+
+                    # FullType
+                    $parameterType.ToString()
+                );
+
+                # Check if [SupportsWildcards()] is present
+                if ($Null -ne ($Parameter.Attributes | Where-Object -FilterScript { $_ -is [System.Management.Automation.SupportsWildcardsAttribute] })) {
+                    $parameterObject.Globbing = $True;
+                }
+
+                FillUpParameterFromHelp -ParameterObject $parameterObject;
+            }
+        }
+    }
+
+    function FillUpSyntaxFromHelp {
+        $paramSetCount = 0
+        foreach($parameterSet in $Help.syntax.syntaxItem)
+        {
+            $syntaxObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlSyntax
+
+            $paramSetCount++
+            $syntaxObject.ParameterSetName = $script:SET_NAME_PLACEHOLDER + "_" + $paramSetCount
+
+            foreach($parameter in $parameterSet.Parameter)
+            {
+                $position = $Null;
+
+                if ($Null -ne $parameter.position -and $parameter.position -ne 'named') {
+                    $position = $parameter.position;
+                }
+
+                $parameterObject = $builder.Parameter(
+                    $syntaxObject.ParameterSetName,
+
+                    # Name
+                    $parameter.Name,
+
+                    # Description
+                    '',
+
+                    # Required
+                    $parameter.required -eq 'true',
+
+                    # Type
+                    $parameter.parameterValue,
+
+                    # Position
+                    $position,
+
+                    # Aliases
+                    $parameter.Aliases,
+
+                    # Pipeline input
+                    ($parameter.pipelineInput | normalizeFirstLatter),
 
                     # FullType
                     ''
                 );
                 
-                FillUpParameterFromHelp $ParameterObject
+                FillUpParameterFromHelp -ParameterObject $parameterObject;
             }
         }
     }

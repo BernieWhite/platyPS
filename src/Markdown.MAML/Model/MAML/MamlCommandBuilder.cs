@@ -83,7 +83,7 @@ namespace Markdown.MAML.Model.MAML
             });
         }
 
-        public MamlParameter Parameter(string parameterSetName, string name, string description, bool required, string type, string[] aliases, string pipelineInput, string fullType)
+        public MamlParameter Parameter(string parameterSetName, string name, string description, bool required, string type, int? position, string[] aliases, string pipelineInput, string fullType)
         {
             var parameter = new MamlParameter
             {
@@ -114,6 +114,10 @@ namespace Markdown.MAML.Model.MAML
                 }
             }
             
+            if (position >= 0 && position <= byte.MaxValue)
+            {
+                parameter.Position = (byte)position;
+            }
 
             if (!_Command.Syntax.ContainsKey(parameterSetName))
             {

@@ -77,7 +77,8 @@ FunctionsToExport = @(
     'Update-MarkdownHelpModule',
     'New-MarkdownAboutHelp',
     'Merge-MarkdownHelp',
-    'New-MarkdownHelpOption'
+    'New-MarkdownHelpOption',
+    'Set-MarkdownHelpOption'
 )
 
 # Cmdlets to export from this module

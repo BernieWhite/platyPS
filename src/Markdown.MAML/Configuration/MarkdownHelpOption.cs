@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -68,6 +69,12 @@ namespace Markdown.MAML.Configuration
         public MarkdownHelpOption Clone()
         {
             return new MarkdownHelpOption(this);
+        }
+
+        public MarkdownHelpOption MergeWith(MarkdownHelpOption option)
+        {
+
+            return this;
         }
 
         public static MarkdownHelpOption FromFile(string path, bool silentlyContinue = false)

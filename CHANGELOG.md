@@ -7,6 +7,10 @@ CHANGELOG
 * The ShowProgress parameter was added to the New-ExternalHelp function. By default progress bars are not display to increase speed of files processing.
 * platyPS performance updates [#315](https://github.com/PowerShell/platyPS/issues/315)
 * Added delegates to allow custom extensibility during markdown and MAML generation [#75](https://github.com/PowerShell/platyPS/issues/75)
+  - See [about_platyPS_Extensibility](docs/about_platyPS_Extensibility.md) help topic for usage and examples
+* Added support for modern DevOps configuration with YAML
+  - See [about_platyPS_Extensibility](docs/about_platyPS_Yaml.md) help topic for usage and examples
+* Fix reflection of parameters with `[SupportsWildcards()]` attribute [#202](https://github.com/PowerShell/platyPS/issues/202)
 
 ## 0.11.0
 
