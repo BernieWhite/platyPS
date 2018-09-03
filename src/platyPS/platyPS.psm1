@@ -786,6 +786,8 @@ function New-ExternalHelp
             Write-Verbose "[New-ExternalHelp] Use $OutputPath as path to a directory"
         }
 
+        Write-Verbose -Message ("[New-ExternalHelp][Start] Adding files [$($perfTrace.ElapsedMilliseconds)]");
+
         if ( -not $ShowProgress.IsPresent -or $(Get-Variable -Name IsCoreClr -ValueOnly -ErrorAction SilentlyContinue) )
         {
             Function Write-Progress() {}
@@ -1600,7 +1602,6 @@ function GetAboutTopicsFromPath
             }
         }
     }
-
     return $AboutMarkDownFiles
 }
 
@@ -2079,7 +2080,7 @@ function NewModuleLandingPage
             }
         }
 
-        MySetContent -Path $LandingPagePath -value $Content -Encoding $Encoding -Force:$Force # yeild
+        MySetContent -Path $LandingPagePath -value $Content -Encoding $Encoding -Force:$Force # yield
     }
 
 }
@@ -2714,14 +2715,6 @@ function ConvertPsObjectsToMamlModel
     #region Command Object Values Processing
 
     $IsWorkflow = $Command.CommandType -eq 'Workflow';
-
-    #region Data not provided by the command object
-
-    #Get Description
-    #Not provided by the command object.
-    $MamlCommandObject.Description = New-Object -TypeName Markdown.MAML.Model.Markdown.SectionBody ("{{Fill in the Description}}")
-
-    #endregion
 
     #Get Syntax
     #region Get the Syntax Parameter Set objects
