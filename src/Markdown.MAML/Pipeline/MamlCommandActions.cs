@@ -82,11 +82,8 @@ namespace Markdown.MAML.Pipeline
         {
             if (node.Parameters.Count > 0)
             {
+                // Sort by name, but always add -Confirm, -WhatIf, -IncludeTotalCount, -Skip, and -First last
                 node.Parameters.Sort(ParameterComparer.Ordered);
-
-                // Sort by name
-
-                // But always add confirm and whatif last
             }
 
             return next(node);
